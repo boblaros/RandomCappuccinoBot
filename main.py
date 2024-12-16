@@ -72,29 +72,29 @@ def send_verification_code(email, code):
             message['Subject'] = "Verification Code"
 
             # Текст сообщения
-            body = f"Il tuo codice di verifica è: {code}"
+            body = f"Your verification code is: {code}"
             message.attach(MIMEText(body, 'plain', 'utf-8'))
 
             # Отправляем письмо
             server.sendmail(EMAIL_ADDRESS, email, message.as_string())
         return True
     except Exception as e:
-        print(f"Errore nell'invio dell'email: {e}")
+        print(f"Error in sending the email: {e}")
         return False
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.send_message(message.chat.id, "Ciao! Inserisci il tuo indirizzo email per confermare il tuo stato di studente.")
+    bot.send_message(message.chat.id, "Hi! Enter your email address to confirm your student status")
     bot.register_next_step_handler(message, handle_email)
 
 @bot.message_handler(commands=['start_pairing'])
 def handle_start_pairing(message):
     if message.chat.id in ADMIN_IDS:
-        bot.send_message(message.chat.id, "Начинаю подбор пар... ⏳")
+        bot.send_message(message.chat.id, "Starting pair matching... ⏳")
         run_pairing_process()
-        bot.send_message(message.chat.id, "Подбор пар завершен!")
+        bot.send_message(message.chat.id, "Pair matching completed!")
     else:
-        bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
+        bot.send_message(message.chat.id, "You do not have permission to execute this command.")
 
 def is_email_in_use(email):
     cursor.execute("SELECT COUNT(*) FROM users WHERE email = ?", (email,))
@@ -110,15 +110,15 @@ def handle_email(message):
         else:
             verification_code = random.randint(100000, 999999)  # Генерируем 6-значный код
             if send_verification_code(email, verification_code):
-                bot.send_message(message.chat.id, f"Un codice di verifica è stato inviato a {email}. Si prega di inserire qui sotto. Controlla la posta indesiderata se non hai ricevuto il codice")
+                bot.send_message(message.chat.id, f"A verification code has been sent to {email}. Please enter it below. Check your spam folder if you have not received the code")
                 verification_codes[message.chat.id] = (email, verification_code)
                 bot.register_next_step_handler(message, verify_code)  # Ожидаем ввода кода
             else:
                 bot.send_message(message.chat.id,
-                             "Si è verificato un errore nell'invio dell'e-mail di verifica. Riprova più tardi.")
+                             "An error occurred while sending the verification email. Please try again later")
                 bot.register_next_step_handler(message, handle_email)
     else:
-        bot.send_message(message.chat.id, "Formato e-mail non valido. Inserisci un indirizzo email valido.")
+        bot.send_message(message.chat.id, "Invalid email format. Please enter a valid email address")
         bot.register_next_step_handler(message, handle_email)  # Ожидаем повторного ввода email
 
 
@@ -136,23 +136,23 @@ def verify_code(message):
 
                 # Создаем Inline-кнопку "Compila il questionario" с добавленным смайликом
                 markup = types.InlineKeyboardMarkup()
-                button = types.InlineKeyboardButton("📝 Compila il questionario", callback_data="start_questionnaire")
+                button = types.InlineKeyboardButton("📝Fill out the questionnaire", callback_data="start_questionnaire")
                 markup.add(button)
 
                 bot.send_message(
                     message.chat.id,
-                    f"Ciao 👋\nSono Random Cappuccino ☕, un bot che promuove il networking per gli studenti universitari italiani.🇮🇹\n\nOgni settimana ti suggerirò una persona interessante da incontrare, selezionata casualmente tra gli altri membri della community.🔄\n\nPer partecipare ai meetup, è necessario compilare un questionario.💡📝\n\nContinuando a interagire con il bot, date il vostro consenso al trattamento dei dati personali in conformità con i termini del Regolamento generale sulla protezione dei dati, GDPR.🔒📜",
+                    f"Hello 👋\nI’m Random Cappuccino ☕, a bot that promotes networking for Italian university students. 🇮🇹\n\nEvery week, I’ll suggest an interesting person for you to meet, randomly selected from other members of the community. 🔄\n\nTo participate in the meetups, you need to fill out a questionnaire. 💡📝\n\nBy continuing to interact with the bot, you consent to the processing of your personal data in accordance with the terms of the General Data Protection Regulation (GDPR). 🔒📜",
                     reply_markup=markup
                 )
 
             else:
-                bot.send_message(message.chat.id, "Codice non valido. Per favore riprova.")
+                bot.send_message(message.chat.id, "Invalid code. Please try again")
                 bot.register_next_step_handler(message, verify_code)  # Ожидаем повторного ввода кода
         except ValueError:
-            bot.send_message(message.chat.id, "Input non valido. Inserisci il codice numerico di verifica.")
+            bot.send_message(message.chat.id, "Invalid input. Please enter the numeric verification code")
             bot.register_next_step_handler(message, verify_code)  # Ожидаем повторного ввода кода
     else:
-        bot.send_message(message.chat.id, "Il processo di verifica è scaduto. Si prega di ricominciare inserendo /start.")
+        bot.send_message(message.chat.id, "The verification process has expired. Please restart by entering /start.")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "start_questionnaire")
@@ -160,41 +160,41 @@ def start_questionnaire_callback(call):
     # Удаляем inline-клавиатуру после нажатия
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
-    bot.send_message(call.message.chat.id, "Inserisci il tuo nome e cognome:")
+    bot.send_message(call.message.chat.id, "Please enter your first and last name:")
     bot.register_next_step_handler(call.message, ask_city)
 
 def ask_city(message):
     user_data[message.chat.id]['name'] = message.text
-    bot.send_message(message.chat.id, "Inserisci la tua città:")
+    bot.send_message(message.chat.id, "Please enter your city:")
     bot.register_next_step_handler(message, ask_occupation)
 
 def ask_occupation(message):
     user_data[message.chat.id]['city'] = message.text
-    bot.send_message(message.chat.id, "Descrivete ciò che fate:")
+    bot.send_message(message.chat.id, "Describe what you do:")
     bot.register_next_step_handler(message, ask_program)
 
 def ask_program(message):
     user_data[message.chat.id]['occupation'] = message.text
-    bot.send_message(message.chat.id, "Inserisci il tuo programma di studi:")
+    bot.send_message(message.chat.id, "Please enter your study program:")
     bot.register_next_step_handler(message, ask_interests)
 
 def ask_interests(message):
     user_data[message.chat.id]['program'] = message.text
-    bot.send_message(message.chat.id, "Inserisci i tuoi interessi (separati da virgola):")
+    bot.send_message(message.chat.id, "Please enter your study program:")
     bot.register_next_step_handler(message, ask_age)
 
 def ask_age(message):
     user_data[message.chat.id]['interests'] = message.text
-    bot.send_message(message.chat.id, "Inserisci la tua età:")
+    bot.send_message(message.chat.id, "Please enter your age:")
     bot.register_next_step_handler(message, ask_contacts)
 
 def ask_contacts(message):
     try:
         user_data[message.chat.id]['age'] = int(message.text)
-        bot.send_message(message.chat.id, "Inserisci i tuoi contatti (es. email o numero di telefono):")
+        bot.send_message(message.chat.id, "Please enter your contact information (e.g., email or phone number):")
         bot.register_next_step_handler(message, save_to_db)
     except ValueError:
-        bot.send_message(message.chat.id, "Per favore inserisci un'età valida (numero).")
+        bot.send_message(message.chat.id, "Please enter a valid age (number).")
         bot.register_next_step_handler(message, ask_age)
 
 def save_to_db(message):
@@ -218,23 +218,23 @@ def save_to_db(message):
 
     # Формирование сообщения с профилем на итальянском
     profile_message = (
-        f"Fatto! 🙌\n\n"
-        f"Ora sei un partecipante agli incontri di Random Cappuccino ☕️\n\n"
-        f"Ecco come apparirà il tuo profilo nel messaggio che invieremo al tuo compagno:\n"
+        f"Done! 🙌\n\n"
+        f"You are now a participant in Random Cappuccino meetups ☕️\n\n"
+        f"Here’s how your profile will appear in the message we send to your match:\n"
         f"⏬\n\n"
-        f"👤 Nome: {user_data[message.chat.id]['name']}\n"
-        f"🌆 Città: {user_data[message.chat.id]['city']}\n"
-        f"💼 Occupazione: {user_data[message.chat.id]['occupation']}\n"
-        f"🎓 Programma: {user_data[message.chat.id]['program']}\n"
-        f"💡 Interessi: {user_data[message.chat.id]['interests']}\n"
-        f"🎂 Età: {user_data[message.chat.id]['age']}\n"
-        f"📞 Contatti: {user_data[message.chat.id]['contacts']}\n\n"
-        f"Se hai bisogno di cambiare qualcosa, usa il comando /help."
+        f"👤 Name: {user_data[message.chat.id]['name']}\n"
+        f"🌆 City: {user_data[message.chat.id]['city']}\n"
+        f"💼 Occupation: {user_data[message.chat.id]['occupation']}\n"
+        f"🎓 Program: {user_data[message.chat.id]['program']}\n"
+        f"💡 Interests: {user_data[message.chat.id]['interests']}\n"
+        f"🎂 Age: {user_data[message.chat.id]['age']}\n"
+        f"📞 Contacts: {user_data[message.chat.id]['contacts']}\n\n"
+        f"If you need to change anything, use the /help command."
     )
 
     # Создаем inline-кнопку
     markup = types.InlineKeyboardMarkup()
-    button = types.InlineKeyboardButton("Avanti verso nuove conoscenze", callback_data="forward_to_meetups")
+    button = types.InlineKeyboardButton("Start connecting!", callback_data="forward_to_meetups")
     markup.add(button)
 
     # Проверка на наличие фото профиля
@@ -264,7 +264,7 @@ def handle_forward(call):
 # Пустая команда /help
 @bot.message_handler(commands=['help'])
 def handle_help(message):
-    bot.send_message(message.chat.id, "Il comando non è ancora attivo, ma presto qui apparirà un'istruzione!")
+    bot.send_message(message.chat.id, "The command is not active yet, but an instruction will appear here soon!")
 
 # Функция для получения данных пользователей из БД
 def get_users_from_db():
@@ -344,8 +344,8 @@ def save_pairs_to_db(pairs):
 def notify_pairs(pairs):
     for pair in pairs:
         user1_id, user2_id = pair
-        bot.send_message(user1_id, f"Hai un nuovo incontro! Il tuo partner è {user2_id}.")
-        bot.send_message(user2_id, f"Hai un nuovo incontro! Il tuo partner è {user1_id}.")
+        bot.send_message(user1_id, f"You have a new match! Your partner is {user2_id}.")
+        bot.send_message(user2_id, f"You have a new match! Your partner is {user1_id}.")
 
 # Основной процесс подбора пар
 def run_pairing_process():
@@ -354,6 +354,6 @@ def run_pairing_process():
         save_pairs_to_db(pairs)
         notify_pairs(pairs)
     else:
-        print("Нет доступных пар для подбора.")
+        print("No available matches for pairing")
 
 bot.polling(none_stop=True)
