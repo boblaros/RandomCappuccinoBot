@@ -306,7 +306,7 @@ def generate_pairs():
 
             common_count = common_interests(user1_interests, user2_interests)
 
-            if common_count > 0:
+            if common_count > 0: # and str(user2_id) not in users[i]['previous_pairs'] and str(user1_id) not in users[j]['previous_pairs']
                 matches[user1_id].append((user2_id, common_count))
                 matches[user2_id].append((user1_id, common_count))
 
