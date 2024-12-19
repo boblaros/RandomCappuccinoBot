@@ -11,7 +11,9 @@ from collections import defaultdict
 
 from dotenv import load_dotenv
 
+import schedule
 import time
+
 import os
 
 load_dotenv('config.env')
@@ -355,5 +357,20 @@ def run_pairing_process():
         notify_pairs(pairs)
     else:
         print("No available matches for pairing")
+
+def schedule_pairing():
+    schedule.every().monday.at("10:00").do(run_pairing_process)
+    # код который будет отправлять каждую минуту: schedule.every(1).minutes.do(run_pairing_process)
+
+    # Бесконечный цикл для выполнения запланированных задач
+    while True:
+        schedule.run_pending()  # Проверяет и запускает задачи
+        time.sleep(1)  # Пауза на 1 секунду
+
+# Запускаем планировщик в отдельном потоке
+import threading
+scheduler_thread = threading.Thread(target=schedule_pairing)
+scheduler_thread.start()
+
 
 bot.polling(none_stop=True)
