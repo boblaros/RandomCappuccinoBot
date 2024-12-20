@@ -268,6 +268,51 @@ def handle_forward(call):
 def handle_help(message):
     bot.send_message(message.chat.id, "The command is not active yet, but an instruction will appear here soon!")
 
+
+@bot.message_handler(commands=['profile'])
+def profile(message):
+    # Подключаемся к базе данных и выполняем запрос
+    conn = sqlite3.connect('random_cappuccino.db')
+    cursor = conn.cursor()
+
+    # Запрос для получения профиля пользователя по его chat.id
+    cursor.execute("""
+        SELECT name, city, occupation, program, interests, age, contacts
+        FROM users
+        WHERE id = ?
+    """, (message.chat.id,))
+
+    user = cursor.fetchone()
+    conn.close()
+
+    # Проверяем, найден ли пользователь
+    if user:
+        name, city, occupation, program, interests, age, contacts = user
+        profile_message = (
+            f"Now your profile looks like this 🤌🏼☕️ \n\n"
+            f"👤 Name: {name}\n"
+            f"🌆 City: {city}\n"
+            f"💼 Occupation: {occupation}\n"
+            f"🎓 Program: {program}\n"
+            f"💡 Interests: {interests}\n"
+            f"🎂 Age: {age}\n"
+            f"📞 Contacts: {contacts}\n\n"
+            f"If you need to change anything, use the /edit_profile or /help commands."
+        )
+
+        # Получаем фото профиля пользователя
+        photos = bot.get_user_profile_photos(message.chat.id, limit=1)
+
+        if photos.total_count > 0:
+            # Если фото есть, отправляем фото с текстом
+            photo_id = photos.photos[0][0].file_id  # ID первой фотографии
+            bot.send_photo(message.chat.id, photo_id, caption=profile_message)
+        else:
+            # Если фото нет, отправляем только текст
+            bot.send_message(message.chat.id, profile_message)
+    else:
+        bot.send_message(message.chat.id, "Profile not found. Please fill out your profile first.")
+
 # Функция для получения данных пользователей из БД
 def get_users_from_db():
     conn = sqlite3.connect('random_cappuccino.db')
