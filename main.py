@@ -389,10 +389,74 @@ def save_pairs_to_db(pairs):
 
 # Функция для уведомления пользователей о новых парах
 def notify_pairs(pairs):
+    """
+    Уведомляет пользователей о новой паре, отправляет карточку партнёра и фото профиля.
+    """
+    conn = sqlite3.connect('random_cappuccino.db')
+    cursor = conn.cursor()
+
     for pair in pairs:
         user1_id, user2_id = pair
-        bot.send_message(user1_id, f"You have a new match! Your partner is {user2_id}.")
-        bot.send_message(user2_id, f"You have a new match! Your partner is {user1_id}.")
+
+        # Получаем данные первого пользователя
+        cursor.execute("""
+            SELECT name, city, occupation, interests, contacts
+            FROM users WHERE id = ?
+        """, (user2_id,))
+        user2_profile = cursor.fetchone()
+
+        # Получаем данные второго пользователя
+        cursor.execute("""
+            SELECT name, city, occupation, interests, contacts
+            FROM users WHERE id = ?
+        """, (user1_id,))
+        user1_profile = cursor.fetchone()
+
+        # Отправляем карточку и фото профиля user2 -> user1
+        if user2_profile:
+            name, city, occupation, interests, contacts = user2_profile
+            telegram_link = f"@{bot.get_chat(user2_id).username}" if bot.get_chat(user2_id).username else "Telegram username not set"
+            profile_message_user2 = (
+                f"🎉 You have a new match! 🎉\n\n"
+                f"👤 *Name*: {name}\n"
+                f"🌆 *City*: {city}\n"
+                f"💼 *Occupation*: {occupation}\n"
+                f"💡 *Interests*: {interests}\n"
+                f"📞 *Contacts*: {contacts}\n"
+                f"🔗 *Telegram*: {telegram_link}"
+            )
+
+            # Получаем фото профиля user2
+            photos = bot.get_user_profile_photos(user2_id, limit=1)
+            if photos.total_count > 0:
+                photo_id = photos.photos[0][0].file_id
+                bot.send_photo(user1_id, photo_id, caption=profile_message_user2, parse_mode="Markdown")
+            else:
+                bot.send_message(user1_id, profile_message_user2, parse_mode="Markdown")
+
+        # Отправляем карточку и фото профиля user1 -> user2
+        if user1_profile:
+            name, city, occupation, interests, contacts = user1_profile
+            telegram_link = f"@{bot.get_chat(user1_id).username}" if bot.get_chat(user1_id).username else "Telegram username not set"
+            profile_message_user1 = (
+                f"🎉 You have a new match! 🎉\n\n"
+                f"👤 *Name*: {name}\n"
+                f"🌆 *City*: {city}\n"
+                f"💼 *Occupation*: {occupation}\n"
+                f"💡 *Interests*: {interests}\n"
+                f"📞 *Contacts*: {contacts}\n"
+                f"🔗 *Telegram*: {telegram_link}"
+            )
+
+            # Получаем фото профиля user1
+            photos = bot.get_user_profile_photos(user1_id, limit=1)
+            if photos.total_count > 0:
+                photo_id = photos.photos[0][0].file_id
+                bot.send_photo(user2_id, photo_id, caption=profile_message_user1, parse_mode="Markdown")
+            else:
+                bot.send_message(user2_id, profile_message_user1, parse_mode="Markdown")
+
+    conn.close()
 
 # Основной процесс подбора пар
 def run_pairing_process():
