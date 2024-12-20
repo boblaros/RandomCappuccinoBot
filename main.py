@@ -89,6 +89,58 @@ def send_welcome(message):
     bot.send_message(message.chat.id, "Hi! Enter your email address to confirm your student status")
     bot.register_next_step_handler(message, handle_email)
 
+@bot.message_handler(commands=['pause'])
+def pause_pairing(message):
+    """
+    Приостанавливает подбор пар для пользователя (меняет status на 0).
+    """
+    conn = sqlite3.connect('random_cappuccino.db')
+    cursor = conn.cursor()
+
+    # Проверяем текущий статус пользователя
+    cursor.execute("SELECT status FROM users WHERE id = ?", (message.chat.id,))
+    result = cursor.fetchone()
+
+    if result:
+        current_status = result[0]
+        if current_status == '1':
+            # Меняем статус на 0
+            cursor.execute("UPDATE users SET status = 0 WHERE id = ?", (message.chat.id,))
+            conn.commit()
+            bot.send_message(message.chat.id, "Pair matching has been paused. You will not receive matches until you resume.")
+        else:
+            bot.send_message(message.chat.id, "Pair matching is already paused.")
+    else:
+        bot.send_message(message.chat.id, "Profile not found. Please complete registration first.")
+
+    conn.close()
+
+@bot.message_handler(commands=['resume'])
+def resume_pairing(message):
+    """
+    Возобновляет подбор пар для пользователя (меняет status на 1).
+    """
+    conn = sqlite3.connect('random_cappuccino.db')
+    cursor = conn.cursor()
+
+    # Проверяем текущий статус пользователя
+    cursor.execute("SELECT status FROM users WHERE id = ?", (message.chat.id,))
+    result = cursor.fetchone()
+
+    if result:
+        current_status = result[0]
+        if current_status == '0':
+            # Меняем статус на 1
+            cursor.execute("UPDATE users SET status = 1 WHERE id = ?", (message.chat.id,))
+            conn.commit()
+            bot.send_message(message.chat.id, "Pair matching has been resumed! You will now participate in the next match.")
+        else:
+            bot.send_message(message.chat.id, "Pair matching is already active.")
+    else:
+        bot.send_message(message.chat.id, "Profile not found. Please complete registration first.")
+
+    conn.close()
+
 @bot.message_handler(commands=['start_pairing'])
 def handle_start_pairing(message):
     if message.chat.id in ADMIN_IDS:
@@ -317,7 +369,7 @@ def profile(message):
 def get_users_from_db():
     conn = sqlite3.connect('random_cappuccino.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT id, interests, previous_pairs FROM users")
+    cursor.execute("SELECT id, interests, previous_pairs FROM users WHERE status = 1")
     users = cursor.fetchall()
     conn.close()
 
