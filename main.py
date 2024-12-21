@@ -141,6 +141,115 @@ def resume_pairing(message):
 
     conn.close()
 
+@bot.message_handler(commands=['edit_profile'])
+def edit_profile(message):
+    """
+    Показывает меню выбора поля для редактирования.
+    """
+    markup = types.InlineKeyboardMarkup()
+    buttons = [
+        types.InlineKeyboardButton("Name", callback_data="edit_name"),
+        types.InlineKeyboardButton("City", callback_data="edit_city"),
+        types.InlineKeyboardButton("Occupation", callback_data="edit_occupation"),
+        types.InlineKeyboardButton("Program", callback_data="edit_program"),
+        types.InlineKeyboardButton("Interests", callback_data="edit_interests"),
+        types.InlineKeyboardButton("Age", callback_data="edit_age")
+    ]
+    markup.add(*buttons)
+
+    bot.send_message(message.chat.id, "What would you like to edit?", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("edit_"))
+def handle_edit_selection(call):
+    """
+    Обрабатывает выбор поля для редактирования.
+    """
+    field = call.data.split("_")[1]
+
+    if field == "name":
+        bot.send_message(call.message.chat.id, "What is your new name?")
+        bot.register_next_step_handler(call.message, edit_name)
+    elif field == "city":
+        bot.send_message(call.message.chat.id, "What is your new city?")
+        bot.register_next_step_handler(call.message, edit_city)
+    elif field == "occupation":
+        bot.send_message(call.message.chat.id, "What is your new occupation?")
+        bot.register_next_step_handler(call.message, edit_occupation)
+    elif field == "program":
+        bot.send_message(call.message.chat.id, "What is your new program?")
+        bot.register_next_step_handler(call.message, edit_program)
+    elif field == "interests":
+        bot.send_message(call.message.chat.id, "What are your new interests? (Separate by commas)")
+        bot.register_next_step_handler(call.message, edit_interests)
+    elif field == "age":
+        bot.send_message(call.message.chat.id, "What is your new age?")
+        bot.register_next_step_handler(call.message, edit_age)
+
+
+def edit_name(message):
+    name = message.text.strip()
+    conn = sqlite3.connect('random_cappuccino.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET name = ? WHERE id = ?", (name, message.chat.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, "Your name has been updated successfully!")
+
+
+def edit_city(message):
+    city = message.text.strip()
+    conn = sqlite3.connect('random_cappuccino.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET city = ? WHERE id = ?", (city, message.chat.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, "Your city has been updated successfully!")
+
+
+def edit_occupation(message):
+    occupation = message.text.strip()
+    conn = sqlite3.connect('random_cappuccino.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET occupation = ? WHERE id = ?", (occupation, message.chat.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, "Your occupation has been updated successfully!")
+
+
+def edit_program(message):
+    program = message.text.strip()
+    conn = sqlite3.connect('random_cappuccino.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET program = ? WHERE id = ?", (program, message.chat.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, "Your program has been updated successfully!")
+
+
+def edit_interests(message):
+    interests = message.text.strip()
+    conn = sqlite3.connect('random_cappuccino.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET interests = ? WHERE id = ?", (interests, message.chat.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, "Your interests have been updated successfully!")
+
+
+def edit_age(message):
+    try:
+        age = int(message.text.strip())
+        conn = sqlite3.connect('random_cappuccino.db')
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET age = ? WHERE id = ?", (age, message.chat.id))
+        conn.commit()
+        conn.close()
+        bot.send_message(message.chat.id, "Your age has been updated successfully!")
+    except ValueError:
+        bot.send_message(message.chat.id, "Please enter a valid number for your age.")
+        bot.register_next_step_handler(message, edit_age)
+
 @bot.message_handler(commands=['start_pairing'])
 def handle_start_pairing(message):
     if message.chat.id in ADMIN_IDS:
