@@ -474,10 +474,52 @@ def handle_forward(call):
     bot.send_message(call.message.chat.id, "Enjoy your meetings! ☕️ I'm finding your meeting partner...")
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
-# Пустая команда /help
 @bot.message_handler(commands=['help'])
-def handle_help(message):
-    bot.send_message(message.chat.id, "The command is not active yet, but an instruction will appear here soon!")
+def help_command(message):
+    """
+    Отправляет список пользовательских команд с кнопками.
+    """
+    help_text = (
+        "🤖 *Help Menu*\n\n"
+        "Here are the available commands you can use. Simply click on a button to execute the command or learn more."
+    )
+
+    # Создаём кнопки
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("About the Bot", callback_data="about"))
+    markup.add(types.InlineKeyboardButton("Rules", callback_data="rules"))
+    markup.add(types.InlineKeyboardButton("FAQ", callback_data="faq"))
+    markup.add(types.InlineKeyboardButton("Edit Profile", callback_data="edit_profile"))
+    markup.add(types.InlineKeyboardButton("Pause Pairings", callback_data="pause"))
+    markup.add(types.InlineKeyboardButton("Resume Pairings", callback_data="resume"))
+    markup.add(types.InlineKeyboardButton("Delete Profile", callback_data="delete_profile"))
+    markup.add(types.InlineKeyboardButton("Leave Feedback", callback_data="feedback"))
+
+    # Отправляем сообщение с кнопками
+    bot.send_message(message.chat.id, help_text, reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data in ["about", "rules", "faq", "edit_profile", "pause", "resume", "delete_profile", "feedback"])
+def handle_help_callbacks(call):
+    """
+    Обрабатывает нажатие на кнопки в меню /help.
+    """
+    if call.data == "about":
+        about(call.message)
+    elif call.data == "rules":
+        rules(call.message)
+    elif call.data == "faq":
+        faq(call.message)
+    elif call.data == "edit_profile":
+        bot.send_message(call.message.chat.id, 'Use the /edit_profile to change your profile.')
+    elif call.data == "pause":
+        bot.send_message(call.message.chat.id, "Use the /pause command to temporarily stop pairings.")
+    elif call.data == "resume":
+        bot.send_message(call.message.chat.id, "Use the /resume command to restart pairings.")
+    elif call.data == "delete_profile":
+        bot.send_message(call.message.chat.id, "Use the /delete_profile command to permanently delete your profile.")
+    elif call.data == "feedback":
+        bot.send_message(call.message.chat.id, "Use the /feedback command to leave a rating and comments.")
 
 @bot.message_handler(commands=['feedback'])
 def collect_feedback(message):
@@ -597,7 +639,6 @@ def about(message):
     )
     bot.send_message(message.chat.id, about_text, parse_mode="Markdown")
 
-
 @bot.message_handler(commands=['rules'])
 def rules(message):
     """
@@ -615,25 +656,24 @@ def rules(message):
     )
     bot.send_message(message.chat.id, rules_text, parse_mode="Markdown")
 
-
 @bot.message_handler(commands=['faq'])
 def faq(message):
     """
     Отправляет ответы на часто задаваемые вопросы.
     """
     faq_text = (
-        "❓ *Frequently Asked Questions*\n\n"
-        "1️⃣ *How does the pairing process work?*\n"
-        "   Every week, the bot matches you with another participant based on shared interests.\n\n"
-        "2️⃣ *Can I update my profile information?*\n"
-        "   Yes! Use the `/edit_profile` command to make changes to your profile.\n\n"
-        "3️⃣ *What if I don't want to participate temporarily?*\n"
-        "   You can use the `/pause` command to stop pairings temporarily and `/resume` to restart.\n\n"
-        "4️⃣ *Can I delete my profile?*\n"
-        "   Yes, use the `/delete_profile` command. You’ll be asked for confirmation before the deletion.\n\n"
-        "5️⃣ *How do I provide feedback about the bot?*\n"
-        "   Use the `/feedback` command to rate the bot and leave your comments. We appreciate your input!\n\n"
-        "If you have more questions, feel free to reach out to the admins. 😊"
+        '❓ *Frequently Asked Questions*\n\n'
+        '1️⃣ *How does the pairing process work?*\n'
+        '   Every week, the bot matches you with another participant based on shared interests.\n\n'
+        '2️⃣ *Can I update my profile information?*\n'
+        '   Yes! Use the /edit\_profile command to make changes to your profile.\n\n'
+        '3️⃣ *What if I don\'t want to participate temporarily?*\n'
+        '   You can use the /pause command to stop pairings temporarily and /resume to restart.\n\n'
+        '4️⃣ *Can I delete my profile?*\n'
+        '   Yes, use the /delete\_profile command. You’ll be asked for confirmation before the deletion.\n\n'
+        '5️⃣ *How do I provide feedback about the bot?*\n'
+        '   Use the /feedback command to rate the bot and leave your comments. We appreciate your input!\n\n'
+        'If you have more questions, feel free to reach out to the admins. 😊'
     )
     bot.send_message(message.chat.id, faq_text, parse_mode="Markdown")
 
