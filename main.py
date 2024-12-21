@@ -29,6 +29,7 @@ SMTP_PORT = 465
 bot = telebot.TeleBot(TOKEN)
 
 verification_codes = {}
+user_feedback = {}
 
 #email_pattern = re.compile(r"^[a-zA-Z0-9._%+-]+@(?:studbocconi|icatt)\.it$")
 email_pattern = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
@@ -53,6 +54,17 @@ cursor.execute('''
         previous_pairs TEXT DEFAULT ''
     )
 ''')
+
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        rating INTEGER NOT NULL,
+        comment TEXT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
+
 conn.commit()
 
 # Словарь для хранения промежуточных данных пользователей
@@ -467,6 +479,63 @@ def handle_forward(call):
 def handle_help(message):
     bot.send_message(message.chat.id, "The command is not active yet, but an instruction will appear here soon!")
 
+@bot.message_handler(commands=['feedback'])
+def collect_feedback(message):
+    """
+    Запрашивает у пользователя оценку и комментарий.
+    """
+    bot.send_message(message.chat.id, "Please rate our bot from 1 to 10:")
+    bot.register_next_step_handler(message, get_rating)
+
+
+def get_rating(message):
+    """
+    Получает оценку пользователя и запрашивает комментарий.
+    """
+    try:
+        rating = int(message.text.strip())
+        if 1 <= rating <= 10:
+            # Сохраняем оценку во временные данные
+            user_feedback[message.chat.id] = {'rating': rating}
+            bot.send_message(message.chat.id, "Thank you! Would you like to leave a comment? If yes, type it below. If not, type 'skip'.")
+            bot.register_next_step_handler(message, get_comment)
+        else:
+            bot.send_message(message.chat.id, "Please enter a valid rating between 1 and 10:")
+            bot.register_next_step_handler(message, get_rating)
+    except ValueError:
+        bot.send_message(message.chat.id, "Please enter a valid number between 1 and 10:")
+        bot.register_next_step_handler(message, get_rating)
+
+
+def get_comment(message):
+    """
+    Получает комментарий пользователя и сохраняет фидбек в БД.
+    """
+    comment = message.text.strip()
+    if comment.lower() == 'skip':
+        comment = None
+
+    # Получаем временно сохранённую оценку
+    feedback_data = user_feedback.get(message.chat.id, {})
+    rating = feedback_data.get('rating', None)
+
+    if rating is not None:
+        # Сохраняем фидбек в БД
+        conn = sqlite3.connect('random_cappuccino.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO feedback (user_id, rating, comment)
+            VALUES (?, ?, ?)
+        ''', (message.chat.id, rating, comment))
+        conn.commit()
+        conn.close()
+
+        # Удаляем временные данные
+        user_feedback.pop(message.chat.id, None)
+
+        bot.send_message(message.chat.id, "Thank you for your feedback! 🙏")
+    else:
+        bot.send_message(message.chat.id, "Something went wrong. Please try again using /feedback.")
 
 @bot.message_handler(commands=['profile'])
 def profile(message):
@@ -511,6 +580,63 @@ def profile(message):
             bot.send_message(message.chat.id, profile_message)
     else:
         bot.send_message(message.chat.id, "Profile not found. Please fill out your profile first.")
+
+@bot.message_handler(commands=['about'])
+def about(message):
+    """
+    Отправляет описание бота и его целей.
+    """
+    about_text = (
+        "🤖 *About Random Cappuccino Bot*\n\n"
+        "Welcome to Random Cappuccino Bot! ☕\n\n"
+        "This bot is designed to help students from various universities network with one another. "
+        "Each week, you'll be paired with a random participant based on your interests and preferences. "
+        "The goal is to encourage meaningful connections and friendships.\n\n"
+        "To participate, simply fill out the registration form, and each week you'll receive details about your pairing partner. "
+        "Enjoy networking and coffee meetups! 😊"
+    )
+    bot.send_message(message.chat.id, about_text, parse_mode="Markdown")
+
+
+@bot.message_handler(commands=['rules'])
+def rules(message):
+    """
+    Отправляет правила использования бота и участия в подборе пар.
+    """
+    rules_text = (
+        "📜 *Rules for Using the Bot and Participating in Pairings*\n\n"
+        "1️⃣ Fill out your profile with accurate and honest information.\n"
+        "2️⃣ Respect your pairing partners: maintain polite and respectful communication.\n"
+        "3️⃣ Avoid spamming or sharing inappropriate content.\n"
+        "4️⃣ If you cannot meet your pairing partner, let them know in advance.\n"
+        "5️⃣ Use the /pause command if you want to temporarily stop participating in pairings.\n"
+        "6️⃣ The bot administrators reserve the right to remove users who violate the rules.\n\n"
+        "By using this bot, you agree to follow these rules. Let’s make this community friendly and supportive! 😊"
+    )
+    bot.send_message(message.chat.id, rules_text, parse_mode="Markdown")
+
+
+@bot.message_handler(commands=['faq'])
+def faq(message):
+    """
+    Отправляет ответы на часто задаваемые вопросы.
+    """
+    faq_text = (
+        "❓ *Frequently Asked Questions*\n\n"
+        "1️⃣ *How does the pairing process work?*\n"
+        "   Every week, the bot matches you with another participant based on shared interests.\n\n"
+        "2️⃣ *Can I update my profile information?*\n"
+        "   Yes! Use the `/edit_profile` command to make changes to your profile.\n\n"
+        "3️⃣ *What if I don't want to participate temporarily?*\n"
+        "   You can use the `/pause` command to stop pairings temporarily and `/resume` to restart.\n\n"
+        "4️⃣ *Can I delete my profile?*\n"
+        "   Yes, use the `/delete_profile` command. You’ll be asked for confirmation before the deletion.\n\n"
+        "5️⃣ *How do I provide feedback about the bot?*\n"
+        "   Use the `/feedback` command to rate the bot and leave your comments. We appreciate your input!\n\n"
+        "If you have more questions, feel free to reach out to the admins. 😊"
+    )
+    bot.send_message(message.chat.id, faq_text, parse_mode="Markdown")
+
 
 # Функция для получения данных пользователей из БД
 def get_users_from_db():
