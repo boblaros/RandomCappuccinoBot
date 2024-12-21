@@ -250,6 +250,44 @@ def edit_age(message):
         bot.send_message(message.chat.id, "Please enter a valid number for your age.")
         bot.register_next_step_handler(message, edit_age)
 
+@bot.message_handler(commands=['delete_profile'])
+def delete_profile(message):
+    """
+    Обрабатывает команду удаления профиля. Спрашивает, не хочет ли пользователь поставить бота на паузу.
+    """
+    # Инлайн-клавиатура с вариантами
+    markup = types.InlineKeyboardMarkup()
+    pause_button = types.InlineKeyboardButton("Pause pairing instead", callback_data="pause_instead")
+    delete_button = types.InlineKeyboardButton("Delete my profile", callback_data="confirm_delete")
+    markup.add(pause_button, delete_button)
+
+    bot.send_message(message.chat.id, "Are you sure you want to delete your profile? You can pause pairing instead.", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data in ["pause_instead", "confirm_delete"])
+def handle_delete_confirmation(call):
+    """
+    Обрабатывает выбор пользователя: пауза или удаление.
+    """
+    if call.data == "pause_instead":
+        # Меняем статус на 0 (пауза)
+        conn = sqlite3.connect('random_cappuccino.db')
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET status = 0 WHERE id = ?", (call.message.chat.id,))
+        conn.commit()
+        conn.close()
+
+        bot.edit_message_text("Pairing has been paused. You can resume it anytime using /resume.", chat_id=call.message.chat.id, message_id=call.message.message_id)
+    elif call.data == "confirm_delete":
+        # Удаляем профиль пользователя
+        conn = sqlite3.connect('random_cappuccino.db')
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM users WHERE id = ?", (call.message.chat.id,))
+        conn.commit()
+        conn.close()
+
+        bot.edit_message_text("Your profile has been deleted successfully. You can register again anytime using /start.", chat_id=call.message.chat.id, message_id=call.message.message_id)
+
 @bot.message_handler(commands=['start_pairing'])
 def handle_start_pairing(message):
     if message.chat.id in ADMIN_IDS:
