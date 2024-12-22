@@ -316,6 +316,8 @@ def is_email_in_use(email):
 
 def handle_email(message):
     email = message.text
+    
+    if not check_message_for_command(message): return
     if email_pattern.match(email):
         if is_email_in_use(email):  # Проверка на уникальность email
             bot.send_message(message.chat.id, "This email is already in use. Please try with a different one.")
@@ -367,41 +369,52 @@ def verify_code(message):
     else:
         bot.send_message(message.chat.id, "The verification process has expired. Please restart by entering /start.")
 
+def check_message_for_command(message):
+    if message.text in ['/start', '/admin', '/help']:
+        bot.send_message(message.chat.id, f"Registration interrupted")
+        return False
+    return True
 
 @bot.callback_query_handler(func=lambda call: call.data == "start_questionnaire")
 def start_questionnaire_callback(call):
     # Удаляем inline-клавиатуру после нажатия
+    if not check_message_for_command(message): return
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
-
     bot.send_message(call.message.chat.id, "Please enter your first and last name:")
     bot.register_next_step_handler(call.message, ask_city)
 
 def ask_city(message):
+    if not check_message_for_command(message): return
     user_data[message.chat.id]['name'] = message.text
     bot.send_message(message.chat.id, "Please enter your city:")
     bot.register_next_step_handler(message, ask_occupation)
 
 def ask_occupation(message):
+    if not check_message_for_command(message): return
     user_data[message.chat.id]['city'] = message.text
     bot.send_message(message.chat.id, "Describe what you do:")
     bot.register_next_step_handler(message, ask_program)
 
 def ask_program(message):
+    if not check_message_for_command(message): return
     user_data[message.chat.id]['occupation'] = message.text
     bot.send_message(message.chat.id, "Please enter your study program:")
     bot.register_next_step_handler(message, ask_interests)
 
 def ask_interests(message):
+    if not check_message_for_command(message): return
     user_data[message.chat.id]['program'] = message.text
     bot.send_message(message.chat.id, "Please enter your study program:")
     bot.register_next_step_handler(message, ask_age)
 
 def ask_age(message):
+    if not check_message_for_command(message): return
     user_data[message.chat.id]['interests'] = message.text
     bot.send_message(message.chat.id, "Please enter your age:")
     bot.register_next_step_handler(message, ask_contacts)
 
 def ask_contacts(message):
+    if not check_message_for_command(message): return
     try:
         user_data[message.chat.id]['age'] = int(message.text)
         bot.send_message(message.chat.id, "Please enter your contact information (e.g., email or phone number):")
@@ -489,8 +502,8 @@ def help_command(message):
     markup.add(types.InlineKeyboardButton("About the Bot", callback_data="about"))
     markup.add(types.InlineKeyboardButton("Rules", callback_data="rules"))
     markup.add(types.InlineKeyboardButton("FAQ", callback_data="faq"))
-    markup.add(types.InlineKeyboardButton("Edit Profile", callback_data="edit_profile"))
     markup.add(types.InlineKeyboardButton("Pause Pairings", callback_data="pause"))
+    markup.add(types.InlineKeyboardButton("Edit Profile", callback_data="editprofile"))
     markup.add(types.InlineKeyboardButton("Resume Pairings", callback_data="resume"))
     markup.add(types.InlineKeyboardButton("Delete Profile", callback_data="delete_profile"))
     markup.add(types.InlineKeyboardButton("Leave Feedback", callback_data="feedback"))
@@ -499,7 +512,7 @@ def help_command(message):
     bot.send_message(message.chat.id, help_text, reply_markup=markup, parse_mode="Markdown")
 
 
-@bot.callback_query_handler(func=lambda call: call.data in ["about", "rules", "faq", "edit_profile", "pause", "resume", "delete_profile", "feedback"])
+@bot.callback_query_handler(func=lambda call: call.data in ["about", "rules", "faq", "editprofile", "edit_profile", "pause", "resume", "delete_profile", "feedback"])
 def handle_help_callbacks(call):
     """
     Обрабатывает нажатие на кнопки в меню /help.
@@ -510,10 +523,10 @@ def handle_help_callbacks(call):
         rules(call.message)
     elif call.data == "faq":
         faq(call.message)
-    elif call.data == "edit_profile":
-        bot.send_message(call.message.chat.id, 'Use the /edit_profile to change your profile.')
     elif call.data == "pause":
         bot.send_message(call.message.chat.id, "Use the /pause command to temporarily stop pairings.")
+    elif call.data == "editprofile":
+        bot.send_message(call.message.chat.id, "Use the /edit_profile command to change your profile.")
     elif call.data == "resume":
         bot.send_message(call.message.chat.id, "Use the /resume command to restart pairings.")
     elif call.data == "delete_profile":
@@ -845,6 +858,52 @@ def schedule_pairing():
 import threading
 scheduler_thread = threading.Thread(target=schedule_pairing)
 scheduler_thread.start()
+
+@bot.message_handler(commands=['broadcast_message'])
+def send_broadcast_message_ask(message, message_text = f"hello world"):
+    """
+    Рассылает сообщение всем пользователям и уведомляет администраторов.
+    """
+    bot.send_message(message.chat.id, "Please enter your message:")
+    bot.register_next_step_handler(message, send_broadcast_message)
+    
+
+
+def send_broadcast_message(message):
+    """
+    Рассылает сообщение всем пользователям и уведомляет администраторов.
+    """
+    admin_ids = ADMIN_IDS
+    users_list = get_users_from_db()  # Получаем список пользователей
+    success_count = 0
+    fail_count = 0
+    message_text = message.text
+    bot.send_message(message.chat.id, f"You are broadcasting the following message:\n{message_text}")
+    
+    for user in users_list:
+        try:
+            user_id = user['id']
+            print(user_id, message_text)
+            bot.send_message(user_id, message_text, parse_mode="Markdown")  # Отправляем сообщение пользователю
+            success_count += 1
+        except Exception as e:
+            fail_count += 1
+            print(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
+
+    # Формируем итоговое сообщение для администраторов
+    admin_message = (
+        f"Рассылка завершена.\n"
+        f"Успешно отправлено: {success_count}\n"
+        f"Не удалось отправить: {fail_count}"
+    )
+    
+    # Отправляем сообщение администраторам
+    for admin_id in admin_ids:
+        try:
+            bot.send_message(admin_id, admin_message)
+        except Exception as e:
+            print(f"Не удалось уведомить администратора {admin_id}: {e}")
+
 
 
 bot.polling(none_stop=True)
