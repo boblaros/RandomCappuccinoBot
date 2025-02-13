@@ -4,7 +4,7 @@ from telebot import types
 from utils.db import *
 from config import ADMIN_IDS, DB_PATH
 import sqlite3
-from utils.utils import *
+from utils import *
 import os
 
 # Алгоритм подбора пар
