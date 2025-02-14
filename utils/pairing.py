@@ -4,7 +4,7 @@ from telebot import types
 from utils.db import *
 from config import ADMIN_IDS, DB_PATH
 import sqlite3
-from utils import *
+from utils.utils import *
 import os
 
 # Алгоритм подбора пар
@@ -66,16 +66,49 @@ def notify_pairs(bot, pairs):
     """
     Уведомляет пользователей о новой паре, отправляет карточку партнёра и фото профиля.
     """
+
+    def escape_markdown(text):
+        """
+        Экранирует спецсимволы Markdown.
+        """
+        # Список символов для экранирования – можно расширить по необходимости
+        escape_chars = r'\*_`[]()'
+        for char in escape_chars:
+            text = text.replace(char, f'\\{char}')
+        return text
+
     def send_profile(user_id, match_id, match_profile, gender):
         """
         Отправляет карточку профиля и фото.
         """
-        profile_message = "Profile details are unavailable."  # Default profile message
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+        profile_message = "Profile details are unavailable."  # сообщение по умолчанию
+
+        # Абсолютный путь для сервера
+        images_dir_prod = '/data/images'
+        # Относительный путь для локальной разработки
+        images_dir_dev = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data/images'))
+        # Логика определения пути
+        images_dir = images_dir_prod if os.path.exists('/data') else images_dir_dev
 
         if match_profile:
             name, city, occupation, interests, contacts = match_profile
-            telegram_link = f"@{bot.get_chat(match_id).username}" if bot.get_chat(match_id).username else "Telegram username not set"
+            # Экранируем динамические данные, чтобы избежать проблем с Markdown
+            name = escape_markdown(str(name))
+            city = escape_markdown(str(city))
+            occupation = escape_markdown(str(occupation))
+            interests = escape_markdown(str(interests))
+            contacts = escape_markdown(str(contacts))
+
+            # Получаем информацию о чате один раз, с обработкой ошибок
+            try:
+                chat = bot.get_chat(match_id)
+                telegram_username = chat.username if chat.username else "Telegram username not set"
+            except Exception:
+                telegram_username = "Telegram username not set"
+
+            # Важно экранировать telegram_username тоже, чтобы не ломалась Markdown-разметка
+            telegram_username = escape_markdown(telegram_username)
+
             profile_message = (
                 f"🎉 You have a new match! 🎉\n\n"
                 f"👤 *Name*: {name}\n"
@@ -83,25 +116,30 @@ def notify_pairs(bot, pairs):
                 f"💼 *Occupation*: {occupation}\n"
                 f"💡 *Interests*: {interests}\n"
                 f"📞 *Contacts*: {contacts}\n"
-                f"🔗 *Telegram*: {telegram_link}"
+                f"🔗 *Telegram*: @{telegram_username}"
             )
 
-            # Check if a local profile photo exists
-        images_dir = os.path.join(base_dir, 'data', 'images')
         photo_path = os.path.join(images_dir, f'user{match_id}_photo.jpg')
         try:
             with open(photo_path, 'rb') as photo:
                 bot.send_photo(user_id, photo, caption=profile_message, parse_mode="Markdown")
         except FileNotFoundError:
-            # Fall back to the existing logic
+            # Если локальное фото не найдено, пробуем получить его через API Telegram
             photos = bot.get_user_profile_photos(match_id, limit=1)
             if photos.total_count > 0:
                 photo_id = photos.photos[0][0].file_id
                 bot.send_photo(user_id, photo_id, caption=profile_message, parse_mode="Markdown")
             else:
-                default_photo_path = os.path.join(base_dir, 'data', 'male_photo.jpg' if gender == 0 else 'female_photo.jpg')
-                bot.send_photo(user_id, open(default_photo_path, 'rb'), caption=profile_message, parse_mode="Markdown")
+                # Используем фото по умолчанию
+                default_filename = 'male_photo.jpg' if gender == 0 else 'female_photo.jpg'
+                default_photo_path = os.path.join(images_dir, default_filename)
+                try:
+                    with open(default_photo_path, 'rb') as default_photo:
+                        bot.send_photo(user_id, default_photo, caption=profile_message, parse_mode="Markdown")
+                except FileNotFoundError:
+                    bot.send_message(user_id, "Profile photo is not available and default photo is missing.")
 
+    import sqlite3
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
@@ -176,8 +214,20 @@ def notify_admins_about_unpaired_user(bot, user_id):
 def check_bot_status_and_get_feedback(bot):
     status = get_bot_status()
     if status == 1:
+        for admin_id in ADMIN_IDS:
+            try:
+                bot.send_message(admin_id,
+                                 'Запускается сбор обратной связи по встречам (21:00 по Милану каждый день)')
+            except Exception as e:
+                print(f"Не удалось уведомить администратора {admin_id}: {e}")
         request_pair_feedback(bot)
     else:
+        for admin_id in ADMIN_IDS:
+            try:
+                bot.send_message(admin_id,
+                                 'Сбор обратной связи по встречам не запускается - бот выключен (set_status = 0)')
+            except Exception as e:
+                print(f"Не удалось уведомить администратора {admin_id}: {e}")
         print("Статус бота = 0, не запускаем request_pair_feedback")
 
 def request_pair_feedback(bot):

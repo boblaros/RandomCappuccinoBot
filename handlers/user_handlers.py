@@ -7,7 +7,13 @@ from utils.utils import *
 import os
 
 user_data = {}
-base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+# Абсолютный путь для сервера
+images_dir_prod = '/data/images'
+# Относительный путь для локальной разработки
+images_dir_dev = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data/images'))
+# Логика определения пути
+images_dir = images_dir_prod if os.path.exists('/data') else images_dir_dev
 
 def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
 
@@ -109,7 +115,7 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             )
 
             # Check if a local profile photo exists
-            photo_path = os.path.join(base_dir, 'data', 'images', f'user{message.chat.id}_photo.jpg')
+            photo_path = os.path.join(images_dir, f'user{message.chat.id}_photo.jpg')
             
             try:
                 with open(photo_path, 'rb') as photo:
@@ -625,7 +631,9 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             file_info = bot.get_file(photo.file_id)
             downloaded_file = bot.download_file(file_info.file_path)
             user_id = message.chat.id
-            save_path = os.path.join(base_dir, 'data', 'images', f'user{user_id}_photo.jpg')
+
+            # Check if a local profile photo exists
+            save_path = os.path.join(images_dir, f'user{message.chat.id}_photo.jpg')
 
             # Сохраняем фото локально
             with open(save_path, 'wb') as new_file:
@@ -778,7 +786,7 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                     (call.message.chat.id,)
                 )
 
-            photo_path = os.path.join(base_dir, 'data', 'images', f'user{call.message.chat.id}_photo.jpg')
+            photo_path = os.path.join(images_dir, f'user{call.message.chat.id}_photo.jpg')
             if os.path.exists(photo_path):
                 os.remove(photo_path)
 

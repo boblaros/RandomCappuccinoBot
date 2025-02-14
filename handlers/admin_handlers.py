@@ -47,6 +47,8 @@ def register_admin_handlers(bot: TeleBot):
         markup.add(types.InlineKeyboardButton("Search by Name", callback_data="search_name"))
 
         bot.send_message(message.chat.id, escape_markdown("How would you like to search for the user?"), reply_markup=markup, parse_mode="MarkdownV2")
+
+    @bot.message_handler(commands=['change_ban_status'])
     def change_ban_status(message):
         # Проверяем, является ли отправитель администратором
         if not is_user_registered(message.chat.id):
