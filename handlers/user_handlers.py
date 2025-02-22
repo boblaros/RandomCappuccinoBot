@@ -1,5 +1,5 @@
 import random
-from telebot import TeleBot, types
+from telebot import types
 from utils.db import *
 from config import DB_PATH
 import sqlite3
@@ -15,25 +15,26 @@ images_dir_dev = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '
 # Логика определения пути
 images_dir = images_dir_prod if os.path.exists('/data') else images_dir_dev
 
-def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
+def register_user_handlers(user_bot, user_feedback, verification_codes):
 
-    @bot.message_handler(commands=['start'])
+    @user_bot.message_handler(commands=['start'])
     def send_welcome(message):
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, "Hi! Enter your email address to confirm your student status")
-            bot.register_next_step_handler(message, handle_email)
+            user_bot.send_message(message.chat.id, "Hi! Enter your *university* email address to confirm your student status", parse_mode="Markdown")
+            user_bot.register_next_step_handler(message, handle_email)
         else:
-            bot.send_message(message.chat.id,
-                             "You are already registered. If you need a new account, enter your email to confirm your student status. Otherwise, use /skip command")
-            bot.register_next_step_handler(message, handle_email)
+            user_bot.send_message(message.chat.id,
+                             "You are already registered. If you need a new account, enter your *university* email to confirm your student status. Otherwise, use /skip command",
+                             parse_mode="Markdown")
+            user_bot.register_next_step_handler(message, handle_email)
 
-    @bot.message_handler(commands=['help'])
+    @user_bot.message_handler(commands=['help'])
     def help_command(message):
         """
         Отправляет список пользовательских команд с кнопками.
         """
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "Please register before using this command.")
             return
 
         help_text = (
@@ -55,35 +56,66 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
 
 
         # Отправляем сообщение с кнопками
-        bot.send_message(message.chat.id, help_text, reply_markup=markup, parse_mode="Markdown")
+        user_bot.send_message(message.chat.id, help_text, reply_markup=markup, parse_mode="Markdown")
 
-    @bot.callback_query_handler(func=lambda call: call.data in ["profile", "about", "rules", "faq", "editprofile", "edit_profile", "pause", "resume",
+    @user_bot.callback_query_handler(
+        func=lambda call: call.data in ["profile", "about", "rules", "faq", "editprofile", "edit_profile", "pause",
+                                        "resume",
                                         "delete_profile", "feedback"])
     def handle_help_callbacks(call):
         """
         Обрабатывает нажатие на кнопки в меню /help.
         """
+        if not is_user_registered(call.message.chat.id):
+            user_bot.send_message(call.message.chat.id,
+                             "You are not registered. Please register first using the /start command.")
+            return
+
+        options_text = {
+            "profile": "Profile",
+            "about": "About",
+            "rules": "Rules",
+            "faq": "FAQ",
+            "editprofile": "Edit Profile",
+            "edit_profile": "Edit Profile",
+            "pause": "Pause",
+            "resume": "Resume",
+            "delete_profile": "Delete Profile",
+            "feedback": "Feedback"
+        }
+
+        selected_option = options_text.get(call.data, "Unknown option")
+
+        # Убираем кнопки и обновляем сообщение
+        user_bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=f"👉 *{selected_option}*",
+            parse_mode="Markdown"
+        )
+
+        # Выполняем соответствующую команду
         if call.data == "profile":
             profile(call.message)
-        if call.data == "about":
+        elif call.data == "about":
             about(call.message)
         elif call.data == "rules":
             rules(call.message)
         elif call.data == "faq":
             faq(call.message)
         elif call.data == "pause":
-            bot.send_message(call.message.chat.id, "Use the /pause command to temporarily stop pairings.")
-        elif call.data == "editprofile":
-            bot.send_message(call.message.chat.id, "Use the /edit_profile command to change your profile.")
+            user_bot.send_message(call.message.chat.id, "Use the /pause command to temporarily stop pairings.")
+        elif call.data == "editprofile" or call.data == "edit_profile":
+            user_bot.send_message(call.message.chat.id, "Use the /edit_profile command to change your profile.")
         elif call.data == "resume":
-            bot.send_message(call.message.chat.id, "Use the /resume command to restart pairings.")
+            user_bot.send_message(call.message.chat.id, "Use the /resume command to restart pairings.")
         elif call.data == "delete_profile":
-            bot.send_message(call.message.chat.id,
+            user_bot.send_message(call.message.chat.id,
                              "Use the /delete_profile command to permanently delete your profile.")
         elif call.data == "feedback":
-            bot.send_message(call.message.chat.id, "Use the /feedback command to leave a rating and comments.")
+            user_bot.send_message(call.message.chat.id, "Use the /feedback command to leave a rating and comments.")
 
-    @bot.message_handler(commands=['profile'])
+    @user_bot.message_handler(commands=['profile'])
     def profile(message):
         # Подключаемся к базе данных и выполняем запрос
         conn = sqlite3.connect(DB_PATH)
@@ -102,47 +134,46 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
         # Проверяем, найден ли пользователь
         if user:
             name, city, occupation, program, interests, age, contacts = user
-            profile_message = (
-                f"Now your profile looks like this 🤌🏼☕️ \n\n"
-                f"👤 Name: {name}\n"
-                f"🌆 City: {city}\n"
-                f"💼 Occupation: {occupation}\n"
-                f"🎓 Program: {program}\n"
-                f"💡 Interests: {interests}\n"
-                f"🎂 Age: {age}\n"
-                f"📞 Contacts: {contacts}\n\n"
-                f"If you need to change anything, use the /edit_profile or /help commands."
-            )
 
+            profile_message = (
+                f"Now your profile looks like this! 🤌🏼☕️ \n\n"
+                f"👤 *Name*: {escape_markdown_v1(name)}\n"
+                f"🌆 *City*: {escape_markdown_v1(city)}\n"
+                f"📝 *About me*: {escape_markdown_v1(occupation)}\n"
+                f"🎓 *Program*: {escape_markdown_v1(program)}\n"
+                f"💡 *Interests*: {escape_markdown_v1(interests)}\n"
+                f"🎂 *Age*: {escape_markdown_v1(age)}\n"
+                f"📞 *Contacts*: {escape_markdown_v1(contacts)}\n"
+            )
             # Check if a local profile photo exists
             photo_path = os.path.join(images_dir, f'user{message.chat.id}_photo.jpg')
-            
+
             try:
                 with open(photo_path, 'rb') as photo:
-                    bot.send_photo(message.chat.id, photo, caption=profile_message)
-                    
+                    user_bot.send_photo(message.chat.id, photo, caption=profile_message, parse_mode="Markdown")
+
             except FileNotFoundError:
                 # Получаем фото профиля пользователя
-                photos = bot.get_user_profile_photos(message.chat.id, limit=1)
+                photos = user_bot.get_user_profile_photos(message.chat.id, limit=1)
 
                 if photos.total_count > 0:
                     # Если фото есть, отправляем фото с текстом
                     photo_id = photos.photos[0][0].file_id  # ID первой фотографии
-                    bot.send_photo(message.chat.id, photo_id, caption=profile_message)
+                    user_bot.send_photo(message.chat.id, photo_id, caption=profile_message, parse_mode="Markdown")
                 else:
                     # Если фото нет, отправляем только текст
-                    bot.send_message(message.chat.id, profile_message)
+                    user_bot.send_message(message.chat.id, profile_message, parse_mode="MarkdownV2")
         else:
-            bot.send_message(message.chat.id, "Profile not found. Please fill out your profile first.")
+            user_bot.send_message(message.chat.id, "Profile not found. Please fill out your profile first.", parse_mode="MarkdownV2")
 
-    @bot.message_handler(commands=['about'])
+    @user_bot.message_handler(commands=['about'])
     def about(message):
         """
         Отправляет описание бота и его целей.
         """
 
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "Please register before using this command.")
             return
 
         about_text = (
@@ -154,15 +185,15 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             "To participate, simply fill out the registration form, and each week you'll receive details about your pairing partner. "
             "Enjoy networking and coffee meetups! 😊"
         )
-        bot.send_message(message.chat.id, about_text, parse_mode="Markdown")
+        user_bot.send_message(message.chat.id, about_text, parse_mode="Markdown")
 
-    @bot.message_handler(commands=['rules'])
+    @user_bot.message_handler(commands=['rules'])
     def rules(message):
         """
         Отправляет правила использования бота и участия в подборе пар.
         """
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "Please register before using this command.")
             return
 
         rules_text = (
@@ -175,16 +206,16 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             "6️⃣ The bot administrators reserve the right to remove users who violate the rules.\n\n"
             "By using this bot, you agree to follow these rules. Let’s make this community friendly and supportive! 😊"
         )
-        bot.send_message(message.chat.id, rules_text, parse_mode="Markdown")
+        user_bot.send_message(message.chat.id, rules_text, parse_mode="Markdown")
 
-    @bot.message_handler(commands=['faq'])
+    @user_bot.message_handler(commands=['faq'])
     def faq(message):
         """
         Отправляет ответы на часто задаваемые вопросы.
         """
 
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "Please register before using this command.")
             return
 
         faq_text = (
@@ -201,13 +232,13 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             '   Use the /feedback command to rate the bot and leave your comments. We appreciate your input!\n\n'
             'If you have more questions, feel free to reach out to the admins. 😊'
         )
-        bot.send_message(message.chat.id, faq_text, parse_mode="Markdown")
+        user_bot.send_message(message.chat.id, faq_text, parse_mode="Markdown")
 
-    @bot.message_handler(commands=['skip'])
+    @user_bot.message_handler(commands=['skip'])
     def skip(message):  # noqa
         pass
 
-    @bot.message_handler(commands=['pause'])
+    @user_bot.message_handler(commands=['pause'])
     def pause_pairing(message):
         """
         Приостанавливает подбор пар для пользователя (меняет status на 0).
@@ -225,22 +256,22 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                     # Меняем статус на 0
                     cursor_pause_pairing.execute("UPDATE users SET status = 0 WHERE id = ?", (message.chat.id,))
                     conn_pause_pairing.commit()
-                    bot.send_message(
+                    user_bot.send_message(
                         message.chat.id,
                         "Pair matching has been paused. You will not receive matches until you resume."
                     )
                 else:
-                    bot.send_message(
+                    user_bot.send_message(
                         message.chat.id,
                         "Pair matching is already paused."
                     )
             else:
-                bot.send_message(
+                user_bot.send_message(
                     message.chat.id,
                     "Profile not found. Please complete registration first."
                 )
 
-    @bot.message_handler(commands=['resume'])
+    @user_bot.message_handler(commands=['resume'])
     def resume_pairing(message):
         """
         Возобновляет подбор пар для пользователя (меняет status на 1).
@@ -258,31 +289,31 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                     # Меняем статус на 1
                     cursor_resume_pairing.execute("UPDATE users SET status = 1 WHERE id = ?", (message.chat.id,))
                     conn_resume_pairing.commit()
-                    bot.send_message(
+                    user_bot.send_message(
                         message.chat.id,
                         "Pair matching has been resumed! You will now participate in the next match."
                     )
                 else:
-                    bot.send_message(
+                    user_bot.send_message(
                         message.chat.id,
                         "Pair matching is already active."
                     )
             else:
-                bot.send_message(
+                user_bot.send_message(
                     message.chat.id,
                     "Profile not found. Please complete registration first."
                 )
 
-    @bot.callback_query_handler(func=lambda call: call.data == "start_questionnaire")
+    @user_bot.callback_query_handler(func=lambda call: call.data == "start_questionnaire")
     def start_questionnaire_callback(call):
         # Удаляем inline-клавиатуру после нажатия
-        if not check_message_for_command(bot, call.message): return
-        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
-        bot.send_message(call.message.chat.id, "Please enter your first and last name:")
-        bot.register_next_step_handler(call.message, ask_gender)
+        if not check_message_for_command(user_bot, call.message): return
+        user_bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+        user_bot.send_message(call.message.chat.id, "Please enter your first and last name:")
+        user_bot.register_next_step_handler(call.message, ask_gender)
 
     def ask_gender(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         user_data[message.chat.id]['name'] = message.text
 
         # Создаем кнопки для выбора пола
@@ -294,9 +325,9 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
         )
 
         # Отправляем сообщение с кнопками
-        bot.send_message(message.chat.id, "Please select your gender:", reply_markup=markup)
+        user_bot.send_message(message.chat.id, "Please select your gender:", reply_markup=markup)
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("gender_"))
+    @user_bot.callback_query_handler(func=lambda call: call.data.startswith("gender_"))
     def handle_gender_selection(call):
         gender_text = call.data.split("_")[1]  # Извлекаем значение пола (male, female или skip)
 
@@ -312,7 +343,7 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
         user_data[call.message.chat.id]['gender'] = gender
 
         # Убираем кнопки, редактируя сообщение
-        bot.edit_message_text(
+        user_bot.edit_message_text(
             f"You selected: {gender_text.capitalize()}",
             chat_id=call.message.chat.id,
             message_id=call.message.message_id
@@ -322,44 +353,44 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
         ask_city(call.message)
 
     def ask_city(message):
-        if not check_message_for_command(bot, message): return
-        bot.send_message(message.chat.id, "Please enter your city:")
-        bot.register_next_step_handler(message, ask_occupation)
+        if not check_message_for_command(user_bot, message): return
+        user_bot.send_message(message.chat.id, "Please enter your city:")
+        user_bot.register_next_step_handler(message, ask_occupation)
 
     def ask_occupation(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         user_data[message.chat.id]['city'] = message.text
-        bot.send_message(message.chat.id, "😊 Tell us a bit about yourself! What do you do? Write a short sentence that describes you (e.g., 'I’m a psychology student who loves exploring how people think and behave.').")
-        bot.register_next_step_handler(message, ask_program)
+        user_bot.send_message(message.chat.id, "😊 Tell us a bit about yourself! What do you do? Write a short sentence that describes you (e.g., 'I’m a psychology student who loves exploring how people think and behave.').")
+        user_bot.register_next_step_handler(message, ask_program)
 
     def ask_program(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         user_data[message.chat.id]['occupation'] = message.text
-        bot.send_message(message.chat.id, "Please enter your study program:")
-        bot.register_next_step_handler(message, ask_interests)
+        user_bot.send_message(message.chat.id, "Please enter your study program:")
+        user_bot.register_next_step_handler(message, ask_interests)
 
     def ask_interests(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         user_data[message.chat.id]['program'] = message.text
-        bot.send_message(message.chat.id,
+        user_bot.send_message(message.chat.id,
                          "🎯 Please share your interests (the more, the better!). List them separated by commas (e.g., AI, reading, travelling, photography) so we can match you with someone who shares your passions! ✨")
-        bot.register_next_step_handler(message, ask_age)
+        user_bot.register_next_step_handler(message, ask_age)
 
     def ask_age(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         user_data[message.chat.id]['interests'] = message.text
-        bot.send_message(message.chat.id, "Please enter your age:")
-        bot.register_next_step_handler(message, ask_contacts)
+        user_bot.send_message(message.chat.id, "Please enter your age:")
+        user_bot.register_next_step_handler(message, ask_contacts)
 
     def ask_contacts(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         try:
             user_data[message.chat.id]['age'] = int(message.text)
-            bot.send_message(message.chat.id, "Please enter your contact information (e.g., Instagram, WhatsApp number, or Telegram username):")
-            bot.register_next_step_handler(message, save_to_db)
+            user_bot.send_message(message.chat.id, "Please enter your contact information (e.g., Instagram, WhatsApp number, or Telegram username):")
+            user_bot.register_next_step_handler(message, save_to_db)
         except ValueError:
-            bot.send_message(message.chat.id, "Please enter a valid age (number).")
-            bot.register_next_step_handler(message, ask_contacts)
+            user_bot.send_message(message.chat.id, "Please enter a valid age (number).")
+            user_bot.register_next_step_handler(message, ask_contacts)
 
     def save_to_db(message):
         user_data[message.chat.id]['contacts'] = message.text
@@ -419,39 +450,39 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
         )
 
         # Проверка на наличие фото профиля
-        photos = bot.get_user_profile_photos(message.chat.id, limit=1)
+        photos = user_bot.get_user_profile_photos(message.chat.id, limit=1)
         if photos.total_count > 0:
             # Отправляем сообщение профиля с фото и кнопкой
-            bot.send_photo(
+            user_bot.send_photo(
                 message.chat.id,
                 photos.photos[0][0].file_id,
-                caption=profile_message
+                caption=profile_message, parse_mode="Markdown"
             )
-            bot.send_message(
+            user_bot.send_message(
                 message.chat.id,
                 hello_message
                              )
         else:
             # Если фото нет, отправляем просто текст
-            bot.send_message(
+            user_bot.send_message(
                 message.chat.id,
                 profile_message,
             )
-            bot.send_message(
+            user_bot.send_message(
                 message.chat.id,
                 hello_message
                              )
 
         del user_data[message.chat.id]
 
-    @bot.message_handler(commands=['edit_profile'])
+    @user_bot.message_handler(commands=['edit_profile'])
     def edit_profile(message):
         """
         Показывает меню выбора поля для редактирования.
         """
 
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "Please register before using this command.")
             return
 
         markup = types.InlineKeyboardMarkup()
@@ -469,46 +500,74 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
         ]
         markup.add(*buttons)
 
-        bot.send_message(message.chat.id, "What would you like to edit?", reply_markup=markup)
+        user_bot.send_message(message.chat.id, "What would you like to edit?", reply_markup=markup)
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("edit_"))
+    @user_bot.callback_query_handler(func=lambda call: call.data.startswith("edit_"))
     def handle_edit_selection(call):
         """
         Обрабатывает выбор поля для редактирования.
         """
+
+        if not is_user_registered(call.message.chat.id):
+            user_bot.send_message(call.message.chat.id,
+                             "You are not registered. Please register first using the /start command.")
+            return
+
         field = call.data.split("_")[1]
 
+        field_names = {
+            "name": "Name",
+            "gender": "Gender",
+            "city": "City",
+            "occupation": "Occupation",
+            "program": "Program",
+            "interests": "Interests",
+            "age": "Age",
+            "photo": "Profile Photo",
+            "contacts": "Contacts"
+        }
+
+        selected_field = field_names.get(field, "Unknown field")
+
+        # Убираем кнопки и обновляем сообщение
+        user_bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=f"👉 *{selected_field}*",
+            parse_mode="Markdown"
+        )
+
         if field == "name":
-            bot.send_message(call.message.chat.id, "What is your new name?")
-            bot.register_next_step_handler(call.message, edit_name)
+            user_bot.send_message(call.message.chat.id, "What is your new name?")
+            user_bot.register_next_step_handler(call.message, edit_name)
         elif field == "gender":
-            bot.send_message(call.message.chat.id,
+            user_bot.send_message(call.message.chat.id,
                              "What is your gender (write 0 for male, 1 for female or -1 for skipping)?")
-            bot.register_next_step_handler(call.message, edit_gender)
+            user_bot.register_next_step_handler(call.message, edit_gender)
         elif field == "city":
-            bot.send_message(call.message.chat.id, "What is your new city?")
-            bot.register_next_step_handler(call.message, edit_city)
+            user_bot.send_message(call.message.chat.id, "What is your new city?")
+            user_bot.register_next_step_handler(call.message, edit_city)
         elif field == "occupation":
-            bot.send_message(call.message.chat.id, "What is your new occupation?")
-            bot.register_next_step_handler(call.message, edit_occupation)
+            user_bot.send_message(call.message.chat.id, "What is your new occupation?")
+            user_bot.register_next_step_handler(call.message, edit_occupation)
         elif field == "program":
-            bot.send_message(call.message.chat.id, "What is your new program?")
-            bot.register_next_step_handler(call.message, edit_program)
+            user_bot.send_message(call.message.chat.id, "What is your new program?")
+            user_bot.register_next_step_handler(call.message, edit_program)
         elif field == "interests":
-            bot.send_message(call.message.chat.id, "What are your new interests? (separate by commas)")
-            bot.register_next_step_handler(call.message, edit_interests)
+            user_bot.send_message(call.message.chat.id, "What are your new interests? (separate by commas)")
+            user_bot.register_next_step_handler(call.message, edit_interests)
         elif field == "age":
-            bot.send_message(call.message.chat.id, "What is your new age?")
-            bot.register_next_step_handler(call.message, edit_age)
+            user_bot.send_message(call.message.chat.id, "What is your new age?")
+            user_bot.register_next_step_handler(call.message, edit_age)
         elif field == "photo":
-            bot.send_message(call.message.chat.id, "Please send your new profile photo:")
-            bot.register_next_step_handler(call.message, edit_photo)
+            user_bot.send_message(call.message.chat.id, "Please send your new profile photo:")
+            user_bot.register_next_step_handler(call.message, edit_photo)
         elif field == "contacts":
-            bot.send_message(call.message.chat.id, "What are your new contacts?")
-            bot.register_next_step_handler(call.message, edit_contacts)
+            user_bot.send_message(call.message.chat.id, "What are your new contacts?")
+            user_bot.register_next_step_handler(call.message, edit_contacts)
 
     def edit_name(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         name = message.text.strip()
         with sqlite3.connect(DB_PATH) as conn_edit_name:
             cursor_edit_name = conn_edit_name.cursor()
@@ -518,10 +577,10 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             )
             conn_edit_name.commit()
 
-        bot.send_message(message.chat.id, "Your name has been updated successfully!")
+        user_bot.send_message(message.chat.id, "Your name has been updated successfully!")
 
     def edit_gender(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         """
         Обрабатывает изменение гендера пользователя.
         """
@@ -543,15 +602,15 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
 
             # Отправляем подтверждение пользователю
             gender_text = {0: "Male", 1: "Female", -1: "Skipped"}.get(gender, "Unknown")
-            bot.send_message(message.chat.id, f"Your gender has been updated to: {gender_text}.")
+            user_bot.send_message(message.chat.id, f"Your gender has been updated to: {gender_text}.")
 
         except ValueError:
             # Если ввод некорректный, просим пользователя повторить
-            bot.send_message(message.chat.id, "Invalid input. Please enter 0 for Male, 1 for Female, or -1 to Skip.")
-            bot.register_next_step_handler(message, edit_gender)
+            user_bot.send_message(message.chat.id, "Invalid input. Please enter 0 for Male, 1 for Female, or -1 to Skip.")
+            user_bot.register_next_step_handler(message, edit_gender)
 
     def edit_city(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         city = message.text.strip()
         with sqlite3.connect(DB_PATH) as conn_edit_city:
             cursor_edit_city = conn_edit_city.cursor()
@@ -561,10 +620,10 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             )
             conn_edit_city.commit()
 
-        bot.send_message(message.chat.id, "Your city has been updated successfully!")
+        user_bot.send_message(message.chat.id, "Your city has been updated successfully!")
 
     def edit_occupation(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         occupation = message.text.strip()
         with sqlite3.connect(DB_PATH) as conn_edit_occupation:
             cursor_edit_occupation = conn_edit_occupation.cursor()
@@ -574,10 +633,10 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             )
             conn_edit_occupation.commit()
 
-        bot.send_message(message.chat.id, "Your occupation has been updated successfully!")
+        user_bot.send_message(message.chat.id, "Your occupation has been updated successfully!")
 
     def edit_program(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         program = message.text.strip()
         with sqlite3.connect(DB_PATH) as conn_edit_program:
             cursor_edit_program = conn_edit_program.cursor()
@@ -587,10 +646,10 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             )
             conn_edit_program.commit()
 
-        bot.send_message(message.chat.id, "Your program has been updated successfully!")
+        user_bot.send_message(message.chat.id, "Your program has been updated successfully!")
 
     def edit_interests(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         interests = message.text.strip()
         with sqlite3.connect(DB_PATH) as conn_edit_interests:
             cursor_edit_interests = conn_edit_interests.cursor()
@@ -600,7 +659,7 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             )
             conn_edit_interests.commit()
 
-        bot.send_message(message.chat.id, "Your interests have been updated successfully!")
+        user_bot.send_message(message.chat.id, "Your interests have been updated successfully!")
 
     def edit_age(message):
         if not check_message_for_command(bot, message): return
@@ -614,10 +673,10 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                 )
                 conn_edit_age.commit()
 
-            bot.send_message(message.chat.id, "Your age has been updated successfully!")
+            user_bot.send_message(message.chat.id, "Your age has been updated successfully!")
         except ValueError:
-            bot.send_message(message.chat.id, "Please enter a valid number for your age.")
-            bot.register_next_step_handler(message, edit_age)
+            user_bot.send_message(message.chat.id, "Please enter a valid number for your age.")
+            user_bot.register_next_step_handler(message, edit_age)
 
     def edit_photo(message):
         """
@@ -628,8 +687,8 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
         if message.content_type == 'photo':
             # Получаем фото
             photo = message.photo[-1]
-            file_info = bot.get_file(photo.file_id)
-            downloaded_file = bot.download_file(file_info.file_path)
+            file_info = user_bot.get_file(photo.file_id)
+            downloaded_file = user_bot.download_file(file_info.file_path)
             user_id = message.chat.id
 
             # Check if a local profile photo exists
@@ -640,11 +699,11 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                 new_file.write(downloaded_file)
 
             # Уведомляем пользователя
-            bot.send_message(message.chat.id, "Your profile photo has been updated successfully!")
+            user_bot.send_message(message.chat.id, "Your profile photo has been updated successfully!")
         else:
             # Если пользователь отправил не фото, повторяем запрос
-            bot.send_message(message.chat.id, "Please send a valid photo.")
-            bot.register_next_step_handler(message, edit_photo)
+            user_bot.send_message(message.chat.id, "Please send a valid photo.")
+            user_bot.register_next_step_handler(message, edit_photo)
 
     def edit_contacts(message):
         if not check_message_for_command(bot, message): return
@@ -658,7 +717,7 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                 )
                 conn_edit_contacts.commit()
 
-                bot.send_message(message.chat.id, "Your contacts have been updated successfully!")
+                user_bot.send_message(message.chat.id, "Your contacts have been updated successfully!")
         except Exception as e:
             print(message.chat.id, f"An unexpected error occurred: {e}")
 
@@ -668,12 +727,12 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
         if not check_message_for_command(bot, message): return
         if email_pattern.match(email):
             if is_email_in_use(email):  # Проверка на уникальность email
-                bot.send_message(message.chat.id, "This email is already in use. Please try with a different one.")
-                bot.register_next_step_handler(message, handle_email)  # Ожидаем повторного ввода email
+                user_bot.send_message(message.chat.id, "This email is already in use. Please try with a different one.")
+                user_bot.register_next_step_handler(message, handle_email)  # Ожидаем повторного ввода email
             else:
                 verification_code = random.randint(100000, 999999)  # Генерируем 6-значный код
                 if send_verification_code(email, verification_code):
-                    bot.send_message(
+                    user_bot.send_message(
                         message.chat.id,
                         f"A verification code has been sent to 📧 {email}\n\n"
                         "Please enter it below 👇\n\n"
@@ -682,14 +741,14 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                     )
 
                     verification_codes[message.chat.id] = (email, verification_code)
-                    bot.register_next_step_handler(message, verify_code)  # Ожидаем ввода кода
+                    user_bot.register_next_step_handler(message, verify_code)  # Ожидаем ввода кода
                 else:
-                    bot.send_message(message.chat.id,
+                    user_bot.send_message(message.chat.id,
                                      "An error occurred while sending the verification email. Please try again later")
-                    bot.register_next_step_handler(message, handle_email)
+                    user_bot.register_next_step_handler(message, handle_email)
         else:
-            bot.send_message(message.chat.id, "Invalid email format. Please enter a valid email address")
-            bot.register_next_step_handler(message, handle_email)  # Ожидаем повторного ввода email
+            user_bot.send_message(message.chat.id, "Invalid email format. Please enter a correct *university* email address", parse_mode="markdown")
+            user_bot.register_next_step_handler(message, handle_email)  # Ожидаем повторного ввода email
 
     def verify_code(message):
         if not check_message_for_command(bot, message): return
@@ -710,7 +769,7 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                                                         callback_data="start_questionnaire")
                     markup.add(button)
 
-                    bot.send_message(
+                    user_bot.send_message(
                         message.chat.id,
                         f"Hello 👋\n\n"
                         f"I’m Random Cappuccino ☕, a bot that promotes networking for Italian university students 🇮🇹\n\n"
@@ -722,22 +781,22 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                     )
 
                 else:
-                    bot.send_message(message.chat.id, "Invalid code. Please try again")
-                    bot.register_next_step_handler(message, verify_code)  # Ожидаем повторного ввода кода
+                    user_bot.send_message(message.chat.id, "Invalid code. Please try again")
+                    user_bot.register_next_step_handler(message, verify_code)  # Ожидаем повторного ввода кода
             except ValueError:
-                bot.send_message(message.chat.id, "Invalid input. Please enter the numeric verification code")
-                bot.register_next_step_handler(message, verify_code)  # Ожидаем повторного ввода кода
+                user_bot.send_message(message.chat.id, "Invalid input. Please enter the numeric verification code")
+                user_bot.register_next_step_handler(message, verify_code)  # Ожидаем повторного ввода кода
         else:
-            bot.send_message(message.chat.id,
+            user_bot.send_message(message.chat.id,
                              "The verification process has expired. Please restart by entering /start.")
 
-    @bot.message_handler(commands=['delete_profile'])
+    @user_bot.message_handler(commands=['delete_profile'])
     def delete_profile(message):
         """
         Обрабатывает команду удаления профиля. Спрашивает, не хочет ли пользователь поставить бота на паузу.
         """
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "Please register before using this command.")
             return
 
         # Inline-клавиатура с вариантами
@@ -746,11 +805,11 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
         delete_button = types.InlineKeyboardButton("Delete my profile", callback_data="confirm_delete")
         markup.add(pause_button, delete_button)
 
-        bot.send_message(message.chat.id,
+        user_bot.send_message(message.chat.id,
                          "Are you sure you want to delete your profile? You can pause pairing instead.",
                          reply_markup=markup)
 
-    @bot.callback_query_handler(func=lambda call: call.data in ["pause_instead", "confirm_delete"])
+    @user_bot.callback_query_handler(func=lambda call: call.data in ["pause_instead", "confirm_delete"])
     def handle_delete_confirmation(call):
         """
         Обрабатывает выбор пользователя: пауза или удаление.
@@ -765,7 +824,7 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                 )
                 conn_pause.commit()
 
-            bot.edit_message_text(
+            user_bot.edit_message_text(
                 "Pairing has been paused. You can resume it anytime using /resume.",
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id
@@ -790,24 +849,24 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             if os.path.exists(photo_path):
                 os.remove(photo_path)
 
-            bot.edit_message_text(
+            user_bot.edit_message_text(
                 "Your profile has been deleted successfully. You can register again anytime using /start.",
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id
             )
 
-    @bot.message_handler(commands=['feedback'])
+    @user_bot.message_handler(commands=['feedback'])
     def collect_feedback(message):
         """
         Запрашивает у пользователя оценку и комментарий.
         """
 
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "Please register before using this command.")
             return
 
-        bot.send_message(message.chat.id, "Please rate our bot from 1 to 10:")
-        bot.register_next_step_handler(message, get_rating)
+        user_bot.send_message(message.chat.id, "Please rate our bot from 1 to 10:")
+        user_bot.register_next_step_handler(message, get_rating)
 
     def get_rating(message):
         """
@@ -819,15 +878,15 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             if 1 <= rating <= 10:
                 # Сохраняем оценку во временные данные
                 user_feedback[message.chat.id] = {'rating': rating}
-                bot.send_message(message.chat.id,
+                user_bot.send_message(message.chat.id,
                                  "Thank you! Would you like to leave a comment? If yes, type it below. If not, type 'skip'.")
-                bot.register_next_step_handler(message, get_comment)
+                user_bot.register_next_step_handler(message, get_comment)
             else:
-                bot.send_message(message.chat.id, "Please enter a valid rating between 1 and 10:")
-                bot.register_next_step_handler(message, get_rating)
+                user_bot.send_message(message.chat.id, "Please enter a valid rating between 1 and 10:")
+                user_bot.register_next_step_handler(message, get_rating)
         except ValueError:
-            bot.send_message(message.chat.id, "Please enter a valid number between 1 and 10:")
-            bot.register_next_step_handler(message, get_rating)
+            user_bot.send_message(message.chat.id, "Please enter a valid number between 1 and 10:")
+            user_bot.register_next_step_handler(message, get_rating)
 
     def get_comment(message):
         """
@@ -847,12 +906,17 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
             # Удаляем временные данные
             user_feedback.pop(message.chat.id, None)
 
-            bot.send_message(message.chat.id, "Thank you for your feedback! 🙏")
+            user_bot.send_message(message.chat.id, "Thank you for your feedback! 🙏")
         else:
-            bot.send_message(message.chat.id, "Something went wrong. Please try again using /feedback.")
+            user_bot.send_message(message.chat.id, "Something went wrong. Please try again using /feedback.")
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("feedback"))
+    @user_bot.callback_query_handler(func=lambda call: call.data.startswith("feedback"))
     def feedback_callback(call):
+        if not is_user_registered(call.message.chat.id):
+            user_bot.send_message(call.message.chat.id,
+                             "You are not registered. Please register first using the /start command.")
+            return
+
         data = call.data.split("_")
         action = data[1]  # yes или no
         pair_id = int(data[2])
@@ -867,23 +931,22 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
         if not user_role:
             return
 
-        bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id,
+        user_bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id,
                                       reply_markup=None)
 
         if action == "yes":
             update_meeting_status(pair_id, user_role, 1)
-            bot.send_message(user_id,
+            user_bot.send_message(user_id,
                              "Thank you for your feedback! If you want to leave more detailed feedback, please use the /feedback command.")
 
         elif action == "no":
             update_meeting_status(pair_id, user_role, 0)
-            bot.send_message(user_id, "Could you explain why the meeting didn’t happen?")
+            user_bot.send_message(user_id, "Could you explain why the meeting didn’t happen?")
 
-            # Удаляем предыдущий хэндлер, если он существует
-            bot.clear_step_handler_by_chat_id(user_id)
+            user_bot.clear_step_handler_by_chat_id(user_id)
 
             # Устанавливаем step handler для ответа пользователя
-            bot.register_next_step_handler_by_chat_id(user_id, lambda message: collect_failure_reason(message, user_id,
+            user_bot.register_next_step_handler_by_chat_id(user_id, lambda message: collect_failure_reason(message, user_id,
                                                                                                       user_role,
                                                                                                       pair_id))
 
@@ -900,11 +963,12 @@ def register_user_handlers(bot: TeleBot, user_feedback, verification_codes):
                                                (updated_reason, pair_id))
             conn_failure_reason.commit()
 
-        bot.send_message(user_id, "Thank you for your explanation!")
+        user_bot.send_message(user_id, "Thank you for your explanation!")
 
-    @bot.message_handler(func=lambda message: not message.text.startswith('/'))
+    @user_bot.message_handler(func=lambda message: not message.text.startswith('/'))
     def handle_generic_messages(message):
-        bot.send_message(
+        user_bot.send_message(
             message.chat.id,
             "If you have any questions or need help, just type /help and I’ll guide you! 😊"
         )
+

@@ -7,9 +7,9 @@ from bot_scheduler import start_scheduler
 
 def main():
     initialize_database()
-    bot = telebot.TeleBot(TOKEN)
+    main_bot = telebot.TeleBot(TOKEN)
 
-    bot.set_my_commands([
+    main_bot.set_my_commands([
         telebot.types.BotCommand("/start", "Register and get started"),
         telebot.types.BotCommand("/help", "Show available commands"),
         telebot.types.BotCommand("/profile", "View your profile"),
@@ -27,12 +27,12 @@ def main():
     verification_codes = {}
     user_feedback = {}
 
-    register_user_handlers(bot, verification_codes, user_feedback)
-    register_admin_handlers(bot)
+    register_user_handlers(main_bot, verification_codes, user_feedback)
+    register_admin_handlers(main_bot)
 
-    start_scheduler(bot)
+    start_scheduler(main_bot)
 
-    bot.polling(none_stop=True)
+    main_bot.polling(none_stop=True)
 
 if __name__ == "__main__":
     main()

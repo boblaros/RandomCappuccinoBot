@@ -67,16 +67,6 @@ def notify_pairs(bot, pairs):
     Уведомляет пользователей о новой паре, отправляет карточку партнёра и фото профиля.
     """
 
-    def escape_markdown(text):
-        """
-        Экранирует спецсимволы Markdown.
-        """
-        # Список символов для экранирования – можно расширить по необходимости
-        escape_chars = r'\*_`[]()'
-        for char in escape_chars:
-            text = text.replace(char, f'\\{char}')
-        return text
-
     def send_profile(user_id, match_id, match_profile, gender):
         """
         Отправляет карточку профиля и фото.
@@ -93,30 +83,25 @@ def notify_pairs(bot, pairs):
         if match_profile:
             name, city, occupation, interests, contacts = match_profile
             # Экранируем динамические данные, чтобы избежать проблем с Markdown
-            name = escape_markdown(str(name))
-            city = escape_markdown(str(city))
-            occupation = escape_markdown(str(occupation))
-            interests = escape_markdown(str(interests))
-            contacts = escape_markdown(str(contacts))
 
             # Получаем информацию о чате один раз, с обработкой ошибок
             try:
                 chat = bot.get_chat(match_id)
-                telegram_username = chat.username if chat.username else "Telegram username not set"
+                telegram_username = f"@{chat.username}" if chat.username else "Telegram username not set"
             except Exception:
                 telegram_username = "Telegram username not set"
 
-            # Важно экранировать telegram_username тоже, чтобы не ломалась Markdown-разметка
-            telegram_username = escape_markdown(telegram_username)
+            # Экранируем имя пользователя
+            telegram_username = escape_markdown_v2(telegram_username)
 
             profile_message = (
                 f"🎉 You have a new match! 🎉\n\n"
-                f"👤 *Name*: {name}\n"
-                f"🌆 *City*: {city}\n"
-                f"💼 *Occupation*: {occupation}\n"
-                f"💡 *Interests*: {interests}\n"
-                f"📞 *Contacts*: {contacts}\n"
-                f"🔗 *Telegram*: @{telegram_username}"
+                f"👤 *Name*: {escape_markdown_v1(name)}\n"
+                f"🌆 *City*: {escape_markdown_v1(city)}\n"
+                f"📝 *About me*: {escape_markdown_v1(occupation)}\n"
+                f"💡 *Interests*: {escape_markdown_v1(interests)}\n"
+                f"📞 *Contacts*: {escape_markdown_v1(contacts)}\n"
+                f"🔗 *Telegram*: {escape_markdown_v1(telegram_username)}"
             )
 
         photo_path = os.path.join(images_dir, f'user{match_id}_photo.jpg')
@@ -139,7 +124,6 @@ def notify_pairs(bot, pairs):
                 except FileNotFoundError:
                     bot.send_message(user_id, "Profile photo is not available and default photo is missing.")
 
-    import sqlite3
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 

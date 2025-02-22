@@ -165,35 +165,28 @@ def insert_feedback(user_id, rating, comment):
         ''', (user_id, rating, comment))
         conn.commit()
 
-def process_ban_status_change(message):
-        try:
-            user_id = int(message.text.strip())
-        except ValueError:
-            bot.send_message(message.chat.id, "Invalid ID. Please enter the command again and provide a numeric ID.")
-            return
+def process_ban_status_change(user_id):
+    """
+    Performs a database query: checks if the user exists and toggles their ban status.
+    Returns the new status (1 - banned, 0 - unbanned) or None if the user is not found.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
 
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
+        # Проверяем текущий статус пользователя
+        cursor.execute("SELECT ban_status FROM ban_list WHERE id = ?", (user_id,))
+        result = cursor.fetchone()
 
-            # Проверяем текущий статус пользователя
-            cursor.execute("SELECT ban_status FROM ban_list WHERE id = ?", (user_id,))
-            result = cursor.fetchone()
+        if result is None:
+            return None  # Пользователь не найден
 
-            if result is None:
-                # Если пользователь отсутствует в таблице, добавляем его с ban_status = 1 (banned)
-                bot.send_message(message.chat.id,"User is not found. Please enter the command again and provide a correct ID.")
-                return
-            else:
-                # Если пользователь найден, меняем статус на противоположный
-                current_status = result[0]
-                new_status = 1 if current_status == 0 else 0
-                cursor.execute("UPDATE ban_list SET ban_status = ? WHERE id = ?", (new_status, user_id))
-                conn.commit()
+        # Меняем статус на противоположный
+        current_status = result[0]
+        new_status = 1 if current_status == 0 else 0
+        cursor.execute("UPDATE ban_list SET ban_status = ? WHERE id = ?", (new_status, user_id))
+        conn.commit()
 
-                if new_status == 1:
-                    bot.send_message(message.chat.id, f"User with ID {user_id} has been banned.")
-                else:
-                    bot.send_message(message.chat.id, f"User with ID {user_id} has been unbanned.")
+        return new_status  # Возвращаем новый статус
 
 def get_bot_statistics():
     """
@@ -287,7 +280,7 @@ def get_user_by_username(username):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, username, email, name, city, occupation
+            SELECT id, email, username, name, gender, city, occupation, program, interests, age, contacts, status, previous_pairs
             FROM users WHERE username = ?
         """, (username,))
         return cursor.fetchone()
@@ -296,7 +289,7 @@ def get_user_by_id(user_id):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, username, email, name, city, occupation
+            SELECT id, email, username, name, gender, city, occupation, program, interests, age, contacts, status, previous_pairs
             FROM users WHERE id = ?
         """, (user_id,))
         return cursor.fetchone()
@@ -305,7 +298,7 @@ def get_users_by_name(name):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, username, email, name, city, occupation
+            SELECT id, email, username, name, gender, city, occupation, program, interests, age, contacts, status, previous_pairs
             FROM users WHERE name LIKE ?
         """, (f"%{name}%",))
         return cursor.fetchall()

@@ -11,9 +11,9 @@ from utils.db import (get_users_from_db,
                 get_users_by_name,
                 update_bot_status,
                 initialize_bot_status,
-                delete_user_from_db)
+                delete_user_from_db,
+                process_ban_status_change)
 
-# email_pattern = re.compile(r"^[a-zA-Z0-9._%+-]+@(?:tobacconist|icatt)\.it$")
 email_pattern = re.compile(
     r"^[a-zA-Z0-9._%+-]+@(?:"
     r"studbocconi\.it|"                # Bocconi
@@ -87,15 +87,37 @@ def send_user_details(bot, chat_id, users):
     Sends details of the user(s) to the admin.
     """
     for user in users:
+        user_id = escape_markdown_v2(user[0])
+        email = escape_markdown_v2(user[1])
+        username = f"@{escape_markdown_v2(user[2])}" if user[2] else "Not set"
+        name = escape_markdown_v2(user[3])
+        gender = escape_markdown_v2(user[4])
+        city = escape_markdown_v2(user[5])
+        occupation = escape_markdown_v2(user[6])
+        program = escape_markdown_v2(user[7])
+        interests = escape_markdown_v2(user[8])
+        age = escape_markdown_v2(user[9])
+        contacts = escape_markdown_v2(user[10])
+        status = escape_markdown_v2(user[11])
+        previous_pairs = escape_markdown_v2(user[12])
+
         user_details = (
             f"👤 *User Details*\n\n"
-            f"ID: `{escape_markdown(user[0])}`\n"
-            f"Username: @{escape_markdown(user[1])}\n"
-            f"Email: `{escape_markdown(user[2])}`\n"
-            f"Name: *{escape_markdown(user[3])}*\n"
-            f"City: `{escape_markdown(user[4])}`\n"
-            f"Occupation: `{escape_markdown(user[5])}`"
+            f"🆔 ID: `{user_id}`\n"
+            f"📧 Email: `{email}`\n"
+            f"🔗 Username: {username}\n"
+            f"👤 Name: {name}\n"
+            f"🚻 Gender: `{gender}`\n"
+            f"🌆 City: `{city}`\n"
+            f"💼 About: `{occupation}`\n"
+            f"🎓 Program: `{program}`\n"
+            f"💡 Interests: `{interests}`\n"
+            f"🎂 Age: `{age}`\n"
+            f"📞 Contacts: `{contacts}`\n"
+            f"📌 Status: `{status}`\n"
+            f"🤝 Previous Pairs: `{previous_pairs}`"
         )
+
         bot.send_message(chat_id, user_details, parse_mode="MarkdownV2")
 
 def send_broadcast_message(bot, message):
@@ -108,7 +130,7 @@ def send_broadcast_message(bot, message):
     fail_count = 0
 
     # Экранируем текст перед отправкой
-    message_text = escape_markdown(message.text)
+    message_text = escape_markdown_v2(message.text)
 
     # Подтверждение для отправителя
     bot.send_message(
@@ -144,7 +166,7 @@ def send_broadcast_message(bot, message):
     # Отправляем сообщение администраторам
     for admin_id in admin_ids:
         try:
-            bot.send_message(admin_id, escape_markdown(admin_message), parse_mode="MarkdownV2")
+            bot.send_message(admin_id, escape_markdown_v2(admin_message), parse_mode="MarkdownV2")
         except Exception as e:
             print(f"Не удалось уведомить администратора {admin_id}: {e}")
 
@@ -159,8 +181,10 @@ def search_by_username(bot, message):
         bot.send_message(message.chat.id, "No user found with the given username.")
 
 def search_by_id(bot, message):
+    if not check_message_for_command(bot, message): return
     if not message.text.isdigit():
         bot.send_message(message.chat.id, "Invalid ID. Please enter a numeric value.")
+        bot.register_next_step_handler(message, lambda msg: search_by_id(bot, msg))
         return
 
     user_id = int(message.text.strip())
@@ -231,3 +255,62 @@ def process_bot_status_change(bot, message):
     # Обновляем статус в БД
     update_bot_status(new_status)
     bot.send_message(message.chat.id, f"Status is changed to {new_status}.")
+
+def escape_markdown_v2(text):
+    """
+    Экранирует специальные символы для MarkdownV2.
+    """
+    if not isinstance(text, str):
+        text = str(text)  # Преобразуем в строку, если передано число
+
+    # Все спецсимволы MarkdownV2, требующие экранирования
+    escape_chars = r'_*[]()~`>#+-=|{.}!@'
+
+    # Заменяем все зарезервированные символы на экранированные
+    return re.sub(r'([{}])'.format(re.escape(escape_chars)), r'\\\1', text)
+
+def escape_markdown_v1(text):
+    """
+    Экранирует специальные символы для MarkdownV2.
+    """
+    if not isinstance(text, str):
+        text = str(text)  # Преобразуем в строку, если передано число
+
+    # Все спецсимволы MarkdownV2, требующие экранирования
+    escape_chars = r'_*[]()~`>#+-=|{}!'
+
+    # Заменяем все зарезервированные символы на экранированные
+    return re.sub(r'([{}])'.format(re.escape(escape_chars)), r'\\\1', text)
+
+def handle_ban_status_input(bot, message):
+
+    """
+    Обрабатывает введенный ID и передает его в функцию смены статуса.
+    """
+    try:
+        user_id = int(message.text.strip())
+    except ValueError:
+        bot.send_message(
+            message.chat.id,
+            escape_markdown_v2("Invalid ID. Please enter the command again and provide a numeric ID."),
+            parse_mode="MarkdownV2"
+        )
+        return
+
+    # Change ban status in DB
+    new_status = process_ban_status_change(user_id)
+
+    # Отправляем ответ в зависимости от результата
+    if new_status is None:
+        bot.send_message(
+            message.chat.id,
+            escape_markdown_v2("User is not found. Please enter the command again and provide a correct ID."),
+            parse_mode="MarkdownV2"
+        )
+    else:
+        status_text = "banned" if new_status == 1 else "unbanned"
+        bot.send_message(
+            message.chat.id,
+            escape_markdown_v2(f"User with ID {user_id} has been {status_text}."),
+            parse_mode="MarkdownV2"
+        )

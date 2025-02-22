@@ -1,43 +1,42 @@
-from telebot import TeleBot, types
+from telebot import types
 from utils.db import *
 from utils.pairing import run_pairing_process
 from config import ADMIN_IDS
 from utils.utils import *
 
-def register_admin_handlers(bot: TeleBot):
-    @bot.message_handler(commands=['start_pairing'])
+def register_admin_handlers(admin_bot):
+    @admin_bot.message_handler(commands=['start_pairing'])
     def handle_start_pairing(message):
         if message.chat.id in ADMIN_IDS:
-            bot.send_message(message.chat.id, escape_markdown("Starting pair matching... ⏳"), parse_mode="MarkdownV2")
+            admin_bot.send_message(message.chat.id, escape_markdown_v2("Starting pair matching... ⏳"), parse_mode="MarkdownV2")
             run_pairing_process(bot)
-            bot.send_message(message.chat.id, escape_markdown("Pair matching completed!"), parse_mode="MarkdownV2")
+            admin_bot.send_message(message.chat.id, escape_markdown_v2("Pair matching completed!"), parse_mode="MarkdownV2")
         else:
-            bot.send_message(message.chat.id, escape_markdown("You do not have permission to execute this command."), parse_mode="MarkdownV2")
+            admin_bot.send_message(message.chat.id, escape_markdown_v2("You do not have permission to execute this command."), parse_mode="MarkdownV2")
 
-    @bot.message_handler(commands=['delete_user'])
+    @admin_bot.message_handler(commands=['delete_user'])
     def delete_user(message):
         # Проверяем, является ли отправитель администратором
         if message.chat.id not in ADMIN_IDS:
-            bot.send_message(message.chat.id, escape_markdown("You do not have permission to execute this command."), parse_mode="MarkdownV2")
+            admin_bot.send_message(message.chat.id, escape_markdown_v2("You do not have permission to execute this command."), parse_mode="MarkdownV2")
             return
 
         # Запрашиваем ID или Telegram username пользователя
-        bot.send_message(message.chat.id, escape_markdown("Please enter the user ID or Telegram username (e.g., @username) to delete:"), parse_mode="MarkdownV2")
-        bot.register_next_step_handler(message, lambda msg: process_user_deletion(bot, msg))
+        admin_bot.send_message(message.chat.id, escape_markdown_v2("Please enter the user ID or Telegram username (e.g., @username) to delete:"), parse_mode="MarkdownV2")
+        admin_bot.register_next_step_handler(message, lambda msg: process_user_deletion(admin_bot, msg))
 
-    @bot.message_handler(commands=['user_info'])
-
+    @admin_bot.message_handler(commands=['user_info'])
     def user_info(message):
         """
         Allows admins to edit a user profile by selecting search criteria.
         """
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, escape_markdown("Please register before using this command."), parse_mode="MarkdownV2")
+            admin_bot.send_message(message.chat.id, escape_markdown_v2("Please register before using this command."), parse_mode="MarkdownV2")
             return
 
         # Check if the user is an admin
         if message.chat.id not in ADMIN_IDS:
-            bot.send_message(message.chat.id, escape_markdown("🚨 You do not have permission to use this command."), parse_mode="MarkdownV2")
+            admin_bot.send_message(message.chat.id, escape_markdown_v2("🚨 You do not have permission to use this command."), parse_mode="MarkdownV2")
             return
 
         # Create buttons for search criteria
@@ -46,36 +45,49 @@ def register_admin_handlers(bot: TeleBot):
         markup.add(types.InlineKeyboardButton("Search by ID", callback_data="search_id"))
         markup.add(types.InlineKeyboardButton("Search by Name", callback_data="search_name"))
 
-        bot.send_message(message.chat.id, escape_markdown("How would you like to search for the user?"), reply_markup=markup, parse_mode="MarkdownV2")
+        admin_bot.send_message(message.chat.id, escape_markdown_v2("How would you like to search for the user?"), reply_markup=markup, parse_mode="MarkdownV2")
 
-    @bot.message_handler(commands=['change_ban_status'])
+    @admin_bot.message_handler(commands=['change_ban_status'])
     def change_ban_status(message):
-        # Проверяем, является ли отправитель администратором
+        """
+        Проверяет права администратора и запрашивает ID пользователя.
+        """
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, escape_markdown("Please register before using this command."), parse_mode="MarkdownV2")
+            admin_bot.send_message(
+                message.chat.id,
+                escape_markdown_v2("Please register before using this command."),
+                parse_mode="MarkdownV2"
+            )
             return
 
         if message.chat.id not in ADMIN_IDS:
-            bot.send_message(message.chat.id, escape_markdown("You do not have permission to execute this command."), parse_mode="MarkdownV2")
+            admin_bot.send_message(
+                message.chat.id,
+                escape_markdown_v2("You do not have permission to execute this command."),
+                parse_mode="MarkdownV2"
+            )
             return
 
-        # Запрашиваем ID пользователя
-        bot.send_message(message.chat.id, escape_markdown("Please enter the user ID:"), parse_mode="MarkdownV2")
-        bot.register_next_step_handler(message, process_ban_status_change)
+        admin_bot.send_message(
+            message.chat.id,
+            escape_markdown_v2("Please enter the user ID:"),
+            parse_mode="MarkdownV2"
+        )
+        admin_bot.register_next_step_handler(message, lambda msg: handle_ban_status_input(bot, msg))
 
-    @bot.message_handler(commands=['stats'])
+    @admin_bot.message_handler(commands=['stats'])
     def stats(message):
         """
         Provides admin statistics about users and pair_registry tables.
         """
         # Проверка, зарегистрирован ли пользователь
         if not is_user_registered(message.chat.id):
-            bot.send_message(message.chat.id, escape_markdown("Please register before using this command."), parse_mode="MarkdownV2")
+            admin_bot.send_message(message.chat.id, escape_markdown_v2("Please register before using this command."), parse_mode="MarkdownV2")
             return
 
         # Проверка, является ли пользователь админом
         if message.chat.id not in ADMIN_IDS:
-            bot.send_message(message.chat.id, escape_markdown("You do not have permission to use this command."), parse_mode="MarkdownV2")
+            admin_bot.send_message(message.chat.id, escape_markdown_v2("You do not have permission to use this command."), parse_mode="MarkdownV2")
             return
 
         # Получаем статистику из БД
@@ -103,55 +115,77 @@ def register_admin_handlers(bot: TeleBot):
 
         # Формируем итоговое сообщение
         stats_message = (
-            f"📊 *Bot Statistics*\n\n"
-            f"👥 Total Registered Users: {total_users}\n"
-            f"🚻 Gender Distribution:\n" + ''.join([f"{line}\n" for line in gender_summary]) +
-            f"🏙️ Top 3 Cities:\n" + ''.join([f"   - {city[0]}: {city[1]} users\n" for city in top_cities]) +
-            f"🎓 Top 3 Programs:\n" + ''.join([f"   - {program[0]}: {program[1]} users\n" for program in top_programs]) +
-            f"💼 Top 3 Occupations:\n" + ''.join([f"   - {occupation[0]}: {occupation[1]} users\n" for occupation in top_occupations]) +
-            f"📈 Average Age: {avg_age:.1f}\n"
-            f"🟢 Active Users: {active_users} ({active_percentage:.1f}% of total)\n"
-            f"🤝 Total Pairs: {total_pairs}"
+                f"📊 *Bot Statistics*\n\n"
+                f"👥 Total Registered Users: {escape_markdown_v2(total_users)}\n"
+                f"🚻 Gender Distribution:\n" + ''.join([f"{escape_markdown_v2(line)}\n" for line in gender_summary]) +
+                f"🏙️ Top 3 Cities:\n" + ''.join(
+            [f"   \- {escape_markdown_v2(city[0])}: {escape_markdown_v2(city[1])} users\n" for city in top_cities]) +
+                f"🎓 Top 3 Programs:\n" + ''.join(
+            [f"   \- {escape_markdown_v2(program[0])}: {escape_markdown_v2(program[1])} users\n" for program in
+             top_programs]) +
+                f"💼 Top 3 Occupations:\n" + ''.join(
+            [f"   \- {escape_markdown_v2(occupation[0])}: {escape_markdown_v2(occupation[1])} users\n" for occupation in
+             top_occupations]) +
+                f"📈 Average Age: {escape_markdown_v2(f'{avg_age:.1f}')}\n"
+                f"🟢 Active Users: {escape_markdown_v2(active_users)} \({escape_markdown_v2(f'{active_percentage:.1f}')}% of total\)\n"
+                f"🤝 Total Pairs: {escape_markdown_v2(total_pairs)}"
         )
 
-        bot.send_message(message.chat.id, stats_message, parse_mode="Markdown")
+        admin_bot.send_message(message.chat.id, stats_message, parse_mode="MarkdownV2")
 
-    @bot.message_handler(commands=['broadcast_message'])
+    @admin_bot.message_handler(commands=['broadcast_message'])
     def send_broadcast_message_ask(message):
         """
         Рассылает сообщение всем пользователям и уведомляет администраторов.
         """
         if message.chat.id not in ADMIN_IDS:
-            bot.send_message(message.chat.id, escape_markdown("You do not have permission to use this command."), parse_mode="MarkdownV2")
+            admin_bot.send_message(message.chat.id, escape_markdown_v2("You do not have permission to use this command."), parse_mode="MarkdownV2")
             return
 
-        bot.send_message(message.chat.id, escape_markdown("Please enter your message:"), parse_mode="MarkdownV2")
-        bot.register_next_step_handler(message, lambda msg: send_broadcast_message(bot, msg))
+        admin_bot.send_message(message.chat.id, escape_markdown_v2("Please enter your message:"), parse_mode="MarkdownV2")
+        admin_bot.register_next_step_handler(message, lambda msg: send_broadcast_message(bot, msg))
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("search_"))
+    @admin_bot.callback_query_handler(func=lambda call: call.data.startswith("search_"))
     def handle_search_criteria(call):
         """
         Handles the selected search criteria.
         """
-        if call.data == "search_username":
-            bot.send_message(call.message.chat.id, escape_markdown("Please enter the username (e.g., @username):"), parse_mode="MarkdownV2")
-            bot.register_next_step_handler(call.message, lambda msg: search_by_username(bot, msg))
-        elif call.data == "search_id":
-            bot.send_message(call.message.chat.id, escape_markdown("Please enter the user ID:"), parse_mode="MarkdownV2")
-            bot.register_next_step_handler(call.message, lambda msg: search_by_id(bot, msg))
-        elif call.data == "search_name":
-            bot.send_message(call.message.chat.id, escape_markdown("Please enter the name or part of the name:"), parse_mode="MarkdownV2")
-            bot.register_next_step_handler(call.message, lambda msg: search_by_name(bot, msg))
+        search_options = {
+            "search_username": "Search by Username",
+            "search_id": "Search by ID",
+            "search_name": "Search by Name"
+        }
 
-    @bot.message_handler(commands=['set_status'])
+        selected_option = search_options.get(call.data, "Unknown option")
+
+        # Убираем кнопки и заменяем текст сообщения
+        admin_bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=f"How would you like to search for the user?\n\n👉 *{selected_option}*",
+            parse_mode="Markdown"
+        )
+
+
+        if call.data == "search_username":
+            admin_bot.send_message(call.message.chat.id, escape_markdown_v2("Please enter the username (e.g., @username):"), parse_mode="MarkdownV2")
+            admin_bot.register_next_step_handler(call.message, lambda msg: search_by_username(bot, msg))
+        elif call.data == "search_id":
+            admin_bot.send_message(call.message.chat.id, escape_markdown_v2("Please enter the user ID:"), parse_mode="MarkdownV2")
+            admin_bot.register_next_step_handler(call.message, lambda msg: search_by_id(bot, msg))
+        elif call.data == "search_name":
+            admin_bot.send_message(call.message.chat.id, escape_markdown_v2("Please enter the name or part of the name:"), parse_mode="MarkdownV2")
+            admin_bot.register_next_step_handler(call.message, lambda msg: search_by_name(bot, msg))
+
+    @admin_bot.message_handler(commands=['set_status'])
     def set_bot_status(message):
         """
         Устанавливает статус бота (только 0 или 1) в таблице bot_status.
         """
         if message.chat.id not in ADMIN_IDS:
-            bot.send_message(message.chat.id, escape_markdown("You do not have permission to do that."), parse_mode="MarkdownV2")
+            admin_bot.send_message(message.chat.id, escape_markdown_v2("You do not have permission to do that."), parse_mode="MarkdownV2")
             return
 
-        bot.send_message(message.chat.id, escape_markdown("Enter new status:"), parse_mode="MarkdownV2")
-        bot.register_next_step_handler(message, lambda msg: process_bot_status_change(bot, msg))
+        admin_bot.send_message(message.chat.id, escape_markdown_v2("Enter new status:"), parse_mode="MarkdownV2")
+        admin_bot.register_next_step_handler(message, lambda msg: process_bot_status_change(bot, msg))
 
