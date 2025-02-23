@@ -20,8 +20,7 @@ def main():
         telebot.types.BotCommand("/resume", "Resume activities"),
         telebot.types.BotCommand("/edit_profile", "Edit your profile"),
         telebot.types.BotCommand("/delete_profile", "Delete your profile"),
-        telebot.types.BotCommand("/feedback", "Provide your feedback"),
-        telebot.types.BotCommand("/skip", "Skip the current step")
+        telebot.types.BotCommand("/feedback", "Provide your feedback")
     ])
 
     verification_codes = {}

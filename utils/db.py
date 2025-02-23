@@ -6,7 +6,7 @@ bot = telebot.TeleBot(TOKEN)
 
 def initialize_database():
     """
-    Инициализирует базу данных SQLite и создаёт необходимые таблицы, если они ещё не существуют.
+    Initializes the SQLite database and creates the necessary tables if they do not already exist.
     """
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()

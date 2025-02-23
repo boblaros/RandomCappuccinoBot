@@ -20,11 +20,11 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
     @user_bot.message_handler(commands=['start'])
     def send_welcome(message):
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "Hi! Enter your *university* email address to confirm your student status", parse_mode="Markdown")
+            user_bot.send_message(message.chat.id, "Hi! Enter your *university email* address to confirm your student status", parse_mode="Markdown")
             user_bot.register_next_step_handler(message, handle_email)
         else:
             user_bot.send_message(message.chat.id,
-                             "You are already registered. If you need a new account, enter your *university* email to confirm your student status. Otherwise, use /skip command",
+                             "You are already registered. If you need a new account, enter your *university email* to confirm your student status. Otherwise, use /skip command",
                              parse_mode="Markdown")
             user_bot.register_next_step_handler(message, handle_email)
 
@@ -64,7 +64,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
                                         "delete_profile", "feedback"])
     def handle_help_callbacks(call):
         """
-        Обрабатывает нажатие на кнопки в меню /help.
+        Handles clicking on buttons in the menu /help.
         """
         if not is_user_registered(call.message.chat.id):
             user_bot.send_message(call.message.chat.id,
@@ -162,9 +162,9 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
                     user_bot.send_photo(message.chat.id, photo_id, caption=profile_message, parse_mode="Markdown")
                 else:
                     # Если фото нет, отправляем только текст
-                    user_bot.send_message(message.chat.id, profile_message, parse_mode="MarkdownV2")
+                    user_bot.send_message(message.chat.id, profile_message, parse_mode="Markdown")
         else:
-            user_bot.send_message(message.chat.id, "Profile not found. Please fill out your profile first.", parse_mode="MarkdownV2")
+            user_bot.send_message(message.chat.id, "Profile not found. Please fill out your profile first.")
 
     @user_bot.message_handler(commands=['about'])
     def about(message):
@@ -306,9 +306,14 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
 
     @user_bot.callback_query_handler(func=lambda call: call.data == "start_questionnaire")
     def start_questionnaire_callback(call):
-        # Удаляем inline-клавиатуру после нажатия
-        if not check_message_for_command(user_bot, call.message): return
-        user_bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+        if not check_message_for_command(user_bot, call.message):
+            return
+
+        # Обновляем текст сообщения, убирая клавиатуру и добавляя новый текст
+        new_text = call.message.text + "\n\n👉 *Fill out the questionnaire*"
+        user_bot.edit_message_text(new_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+
+        # Отправляем следующее сообщение
         user_bot.send_message(call.message.chat.id, "Please enter your first and last name:")
         user_bot.register_next_step_handler(call.message, ask_gender)
 
@@ -343,10 +348,12 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         user_data[call.message.chat.id]['gender'] = gender
 
         # Убираем кнопки, редактируя сообщение
+        new_text = call.message.text + f"\n\n👉 *{gender_text.capitalize()}*"
         user_bot.edit_message_text(
-            f"You selected: {gender_text.capitalize()}",
+            new_text,
             chat_id=call.message.chat.id,
-            message_id=call.message.message_id
+            message_id=call.message.message_id,
+            parse_mode="Markdown"
         )
 
         # Переходим к следующему шагу
@@ -354,7 +361,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
 
     def ask_city(message):
         if not check_message_for_command(user_bot, message): return
-        user_bot.send_message(message.chat.id, "Please enter your city:")
+        user_bot.send_message(message.chat.id, "Which city are you studying in?")
         user_bot.register_next_step_handler(message, ask_occupation)
 
     def ask_occupation(message):
@@ -386,7 +393,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         if not check_message_for_command(user_bot, message): return
         try:
             user_data[message.chat.id]['age'] = int(message.text)
-            user_bot.send_message(message.chat.id, "Please enter your contact information (e.g., Instagram, WhatsApp number, or Telegram username):")
+            user_bot.send_message(message.chat.id, "Please enter your contact information (e.g., Instagram or WhatsApp):")
             user_bot.register_next_step_handler(message, save_to_db)
         except ValueError:
             user_bot.send_message(message.chat.id, "Please enter a valid age (number).")
@@ -747,7 +754,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
                                      "An error occurred while sending the verification email. Please try again later")
                     user_bot.register_next_step_handler(message, handle_email)
         else:
-            user_bot.send_message(message.chat.id, "Invalid email format. Please enter a correct *university* email address", parse_mode="markdown")
+            user_bot.send_message(message.chat.id, "Invalid email format. Please enter a correct *university email* address", parse_mode="markdown")
             user_bot.register_next_step_handler(message, handle_email)  # Ожидаем повторного ввода email
 
     def verify_code(message):
@@ -773,7 +780,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
                         message.chat.id,
                         f"Hello 👋\n\n"
                         f"I’m Random Cappuccino ☕, a bot that promotes networking for Italian university students 🇮🇹\n\n"
-                        f"Every week, I’ll suggest an interesting person for you to meet, randomly selected from other members of the community 🔄\n\n"
+                        f"Every week, I’ll suggest an interesting person for you to meet, chosen based on shared interests from other members of the community.  🔄\n\n"
                         f"To participate in the meetups, you need to fill out a questionnaire. 💡📝\n\n"
                         f"P.S. We <b>respect your privacy</b> and do not share any information with third parties, you can delete your profile at any time 🔒☑️",
                         parse_mode = "HTML",

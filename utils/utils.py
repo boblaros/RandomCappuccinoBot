@@ -135,7 +135,7 @@ def send_broadcast_message(bot, message):
     # Подтверждение для отправителя
     bot.send_message(
         message.chat.id, 
-        f"You are broadcasting the following message:\n\n{message_text}", 
+        f"You are broadcasting the following message:\n\n{message_text}",
         parse_mode="MarkdownV2"
     )
 
@@ -159,19 +159,21 @@ def send_broadcast_message(bot, message):
     # Формируем итоговое сообщение для администраторов
     admin_message = (
         f"Рассылка завершена.\n"
-        f"✅ Успешно отправлено: *{success_count}*\n"
-        f"❌ Не удалось отправить: *{fail_count}*"
+        f"✅ *Успешно отправлено*: {success_count}\n"
+        f"❌ *Не удалось отправить*: {fail_count}"
     )
 
     # Отправляем сообщение администраторам
     for admin_id in admin_ids:
         try:
-            bot.send_message(admin_id, escape_markdown_v2(admin_message), parse_mode="MarkdownV2")
+            bot.send_message(admin_id, admin_message, parse_mode="Markdown")
         except Exception as e:
             print(f"Не удалось уведомить администратора {admin_id}: {e}")
 
 
 def search_by_username(bot, message):
+    if not check_message_for_command(bot, message): return
+
     username = message.text.strip().lstrip("@")
     user = get_user_by_username(username)
 
@@ -184,7 +186,6 @@ def search_by_id(bot, message):
     if not check_message_for_command(bot, message): return
     if not message.text.isdigit():
         bot.send_message(message.chat.id, "Invalid ID. Please enter a numeric value.")
-        bot.register_next_step_handler(message, lambda msg: search_by_id(bot, msg))
         return
 
     user_id = int(message.text.strip())
@@ -196,6 +197,8 @@ def search_by_id(bot, message):
         bot.send_message(message.chat.id, "No user found with the given ID.")
 
 def search_by_name(bot, message):
+    if not check_message_for_command(bot, message): return
+
     name = message.text.strip()
     users = get_users_by_name(name)
 
@@ -235,26 +238,25 @@ def process_user_deletion(bot, message):
 
 def process_bot_status_change(bot, message):
     """
-    Основная логика обработки изменения статуса бота.
+    Proceed bot status change
     """
     if not check_message_for_command(bot, message): return
+
     try:
         new_status = int(message.text)
         if new_status not in (0, 1):
             bot.send_message(message.chat.id, "Invalid number. 0 or 1 are required.")
-            bot.register_next_step_handler(message, lambda msg: process_bot_status_change(bot, msg))
+            return
+        else:
+            # Проверяем и инициализируем статус в БД, если нужно
+            initialize_bot_status()
+
+            # Update status in DB
+            update_bot_status(new_status)
+            bot.send_message(message.chat.id, f"Status is changed to {new_status}.")
             return
     except ValueError:
         bot.send_message(message.chat.id, "Invalid format. 0 or 1 are required.")
-        bot.register_next_step_handler(message, lambda msg: process_bot_status_change(bot, msg))
-        return
-
-    # Проверяем и инициализируем статус в БД, если нужно
-    initialize_bot_status()
-
-    # Обновляем статус в БД
-    update_bot_status(new_status)
-    bot.send_message(message.chat.id, f"Status is changed to {new_status}.")
 
 def escape_markdown_v2(text):
     """
