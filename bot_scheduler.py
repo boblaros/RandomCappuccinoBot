@@ -33,8 +33,15 @@ def start_scheduler(bot):
     italy_tz = pytz.timezone("Europe/Rome")
     scheduler = BackgroundScheduler()
 
-    scheduler.add_job(lambda: check_bot_status_and_run(bot), CronTrigger(hour=10, minute=0, timezone=italy_tz))
-    scheduler.add_job(lambda: check_bot_status_and_feedback(bot), CronTrigger(hour=21, minute=0, timezone=italy_tz))
+    scheduler.add_job(
+        lambda: check_bot_status_and_run(bot),
+        CronTrigger(day_of_week='mon', hour=10, minute=0, timezone=italy_tz)
+    )
+
+    scheduler.add_job(
+        lambda: check_bot_status_and_feedback(bot),
+        CronTrigger(day_of_week='sun', hour=10, minute=0, timezone=italy_tz)
+    )
 
     time.sleep(5)
     scheduler.start()
