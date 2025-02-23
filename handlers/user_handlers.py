@@ -221,16 +221,16 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         faq_text = (
             '❓ *Frequently Asked Questions*\n\n'
             '1️⃣ *How does the pairing process work?*\n'
-            '   Every week, the bot matches you with another participant based on shared interests.\n\n'
+            'Every week, the bot matches you with another participant based on shared interests.\n\n'
             '2️⃣ *Can I update my profile information?*\n'
-            '   Yes! Use the /edit\_profile command to make changes to your profile.\n\n'
+            'Yes! Use the /edit\_profile command to make changes to your profile.\n\n'
             '3️⃣ *What if I don\'t want to participate temporarily?*\n'
-            '   You can use the /pause command to stop pairings temporarily and /resume to restart.\n\n'
+            'You can use the /pause command to stop pairings temporarily and /resume to restart.\n\n'
             '4️⃣ *Can I delete my profile?*\n'
-            '   Yes, use the /delete\_profile command. You’ll be asked for confirmation before the deletion.\n\n'
+            'Yes, use the /delete\_profile command. You’ll be asked for confirmation before the deletion.\n\n'
             '5️⃣ *How do I provide feedback about the bot?*\n'
-            '   Use the /feedback command to rate the bot and leave your comments. We appreciate your input!\n\n'
-            'If you have more questions, feel free to reach out to the admins. 😊'
+            'Use the /feedback command to rate the bot and leave your comments. We appreciate your input!\n\n'
+            'If you have more questions, feel free to reach out to the admins via bot.random.cappuccino@gmail.com. 😊'
         )
         user_bot.send_message(message.chat.id, faq_text, parse_mode="Markdown")
 
@@ -437,27 +437,22 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         # Формирование сообщения с профилем на итальянском
         profile_message = (
             f"Done! 🙌\n\n"
-            f"Here’s how your profile will appear in the message we send to your match:\n"
+            f"Here’s how your profile will appear in the message we send to your match:\n\n"
             f"⏬\n\n"
-            f"👤 Name: {user_data[message.chat.id]['name']}\n"
-            f"🌆 City: {user_data[message.chat.id]['city']}\n"
-            f"💼 Occupation: {user_data[message.chat.id]['occupation']}\n"
-            f"🎓 Program: {user_data[message.chat.id]['program']}\n"
-            f"💡 Interests: {user_data[message.chat.id]['interests']}\n"
-            f"🎂 Age: {user_data[message.chat.id]['age']}\n"
-            f"📞 Contacts: {user_data[message.chat.id]['contacts']}\n\n"
-
-        )
-
-        hello_message = (
-            f"🎉 Congratulations! You are now a participant in Random Cappuccino meetups ☕️\n\n"
-            f"📅 Every Monday at 10:00, you'll receive details about your new pair. Get ready to meet someone interesting! 🌟\n\n"
-            f"💡 Need help or want to make changes to your profile (e.g., upload a different profile picture or delete your profile)? Simply use the /help command. "
-            f"There, you’ll find instructions on how to update your information, pause pairings, or learn more about how the bot works."
+            f"👤 *Name*: {user_data[message.chat.id]['name']}\n"
+            f"🌆 *City*: {user_data[message.chat.id]['city']}\n"
+            f"💼 *Occupation*: {user_data[message.chat.id]['occupation']}\n"
+            f"🎓 *Program*: {user_data[message.chat.id]['program']}\n"
+            f"💡 *Interests*: {user_data[message.chat.id]['interests']}\n"
+            f"🎂 *Age*: {user_data[message.chat.id]['age']}\n"
+            f"📞 *Contacts*: {user_data[message.chat.id]['contacts']}\n"
+            f"---------------------\n"
+            f"💡 **Need help or want to make changes to your profile?\nSimply use the /help command.**"
         )
 
         # Проверка на наличие фото профиля
         photos = user_bot.get_user_profile_photos(message.chat.id, limit=1)
+        photo_path = os.path.join(images_dir, 'welcome-pic.jpg')
         if photos.total_count > 0:
             # Отправляем сообщение профиля с фото и кнопкой
             user_bot.send_photo(
@@ -465,20 +460,20 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
                 photos.photos[0][0].file_id,
                 caption=profile_message, parse_mode="Markdown"
             )
-            user_bot.send_message(
-                message.chat.id,
-                hello_message
-                             )
+            with open(photo_path, 'rb') as photo:
+                user_bot.send_photo(
+                    message.chat.id,
+                    photo)
         else:
             # Если фото нет, отправляем просто текст
             user_bot.send_message(
                 message.chat.id,
-                profile_message,
+                profile_message, parse_mode="Markdown"
             )
-            user_bot.send_message(
-                message.chat.id,
-                hello_message
-                             )
+            with open(photo_path, 'rb') as photo:
+                user_bot.send_photo(
+                    message.chat.id,
+                    photo)
 
         del user_data[message.chat.id]
 
