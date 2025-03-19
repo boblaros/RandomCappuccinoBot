@@ -91,9 +91,6 @@ def notify_pairs(bot, pairs):
             except Exception:
                 telegram_username = "Telegram username not set"
 
-            # Экранируем имя пользователя
-            telegram_username = escape_markdown_v2(telegram_username)
-
             profile_message = (
                 f"🎉 You have a new match! 🎉\n\n"
                 f"👤 *Name*: {escape_markdown_v1(name)}\n"

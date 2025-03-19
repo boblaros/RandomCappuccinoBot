@@ -279,7 +279,7 @@ def escape_markdown_v1(text):
         text = str(text)  # Преобразуем в строку, если передано число
 
     # Все спецсимволы MarkdownV2, требующие экранирования
-    escape_chars = r'_*[]()~`>#+-=|{}!'
+    escape_chars = r'_`*'
 
     # Заменяем все зарезервированные символы на экранированные
     return re.sub(r'([{}])'.format(re.escape(escape_chars)), r'\\\1', text)
