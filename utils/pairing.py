@@ -71,20 +71,16 @@ def notify_pairs(bot, pairs):
         """
         Отправляет карточку профиля и фото.
         """
-        profile_message = "Profile details are unavailable."  # сообщение по умолчанию
+        profile_message = "Profile details are unavailable."
 
-        # Абсолютный путь для сервера
+        # Пути к директории изображений
         images_dir_prod = '/data/images'
-        # Относительный путь для локальной разработки
         images_dir_dev = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data/images'))
-        # Логика определения пути
         images_dir = images_dir_prod if os.path.exists('/data') else images_dir_dev
 
         if match_profile:
             name, city, occupation, interests, contacts = match_profile
-            # Экранируем динамические данные, чтобы избежать проблем с Markdown
 
-            # Получаем информацию о чате один раз, с обработкой ошибок
             try:
                 chat = bot.get_chat(match_id)
                 telegram_username = f"@{chat.username}" if chat.username else "Telegram username not set"
@@ -102,47 +98,55 @@ def notify_pairs(bot, pairs):
             )
 
         photo_path = os.path.join(images_dir, f'user{match_id}_photo.jpg')
+
         try:
-            with open(photo_path, 'rb') as photo:
-                bot.send_photo(user_id, photo, caption=profile_message, parse_mode="Markdown")
-        except FileNotFoundError:
-            # Если локальное фото не найдено, пробуем получить его через API Telegram
-            photos = bot.get_user_profile_photos(match_id, limit=1)
-            if photos.total_count > 0:
-                photo_id = photos.photos[0][0].file_id
-                bot.send_photo(user_id, photo_id, caption=profile_message, parse_mode="Markdown")
+            if os.path.exists(photo_path):
+                with open(photo_path, 'rb') as photo:
+                    bot.send_photo(user_id, photo, caption=profile_message, parse_mode="Markdown")
             else:
-                # Используем фото по умолчанию
-                default_filename = 'male_photo.jpg' if gender == 0 else 'female_photo.jpg'
-                default_photo_path = os.path.join(images_dir, default_filename)
-                try:
-                    with open(default_photo_path, 'rb') as default_photo:
-                        bot.send_photo(user_id, default_photo, caption=profile_message, parse_mode="Markdown")
-                except FileNotFoundError:
-                    bot.send_message(user_id, "Profile photo is not available and default photo is missing.")
+                # Пробуем получить фото пользователя через Telegram API
+                photos = bot.get_user_profile_photos(match_id, limit=1)
+                if photos.total_count > 0:
+                    photo_id = photos.photos[0][0].file_id
+                    bot.send_photo(user_id, photo_id, caption=profile_message, parse_mode="Markdown")
+                else:
+                    # Используем дефолтное фото
+                    default_filename = 'male_photo.jpg' if gender == 0 else 'female_photo.jpg'
+                    default_photo_path = os.path.join(images_dir, default_filename)
+                    if os.path.exists(default_photo_path):
+                        with open(default_photo_path, 'rb') as default_photo:
+                            bot.send_photo(user_id, default_photo, caption=profile_message, parse_mode="Markdown")
+                    else:
+                        bot.send_message(user_id, "Profile photo is not available and default photo is missing.")
+        except Exception as e:
+            error_text = str(e)
+            if "bot was blocked by the user" in error_text or "403" in error_text:
+                print(f"[WARN] User {user_id} blocked the bot. Skipping...")
+            else:
+                print(f"[ERROR] Failed to send profile to user {user_id}: {error_text}")
 
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
         for user1_id, user2_id in pairs:
-            # Получаем данные обоих пользователей
+            # Получаем профиль user2 для user1
             cursor.execute("""
                 SELECT name, city, occupation, interests, contacts, gender
                 FROM users WHERE id = ?
             """, (user2_id,))
             user2_profile = cursor.fetchone()
 
+            # Получаем профиль user1 для user2
             cursor.execute("""
                 SELECT name, city, occupation, interests, contacts, gender
                 FROM users WHERE id = ?
             """, (user1_id,))
             user1_profile = cursor.fetchone()
 
-            # Отправляем профили, включая gender для выбора фото по умолчанию
             if user2_profile:
-                send_profile(user1_id, user2_id, user2_profile[:-1], user2_profile[-1])  # user2 -> user1
+                send_profile(user1_id, user2_id, user2_profile[:-1], user2_profile[-1])
             if user1_profile:
-                send_profile(user2_id, user1_id, user1_profile[:-1], user1_profile[-1])  # user1 -> user2
+                send_profile(user2_id, user1_id, user1_profile[:-1], user1_profile[-1])
 
 # Основной процесс подбора пар
 def run_pairing_process(bot):
