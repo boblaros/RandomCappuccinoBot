@@ -439,13 +439,13 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
             f"Done! 🙌\n\n"
             f"Here’s how your profile will appear in the message we send to your match:\n\n"
             f"⏬\n\n"
-            f"👤 *Name*: {user_data[message.chat.id]['name']}\n"
-            f"🌆 *City*: {user_data[message.chat.id]['city']}\n"
-            f"💼 *Occupation*: {user_data[message.chat.id]['occupation']}\n"
-            f"🎓 *Program*: {user_data[message.chat.id]['program']}\n"
-            f"💡 *Interests*: {user_data[message.chat.id]['interests']}\n"
+            f"👤 *Name*: {escape_markdown_v1(user_data[message.chat.id]['name'])}\n"
+            f"🌆 *City*: {escape_markdown_v1(user_data[message.chat.id]['city'])}\n"
+            f"💼 *Occupation*: {escape_markdown_v1(user_data[message.chat.id]['occupation'])}\n"
+            f"🎓 *Program*: {escape_markdown_v1(user_data[message.chat.id]['program'])}\n"
+            f"💡 *Interests*: {escape_markdown_v1(user_data[message.chat.id]['interests'])}\n"
             f"🎂 *Age*: {user_data[message.chat.id]['age']}\n"
-            f"📞 *Contacts*: {user_data[message.chat.id]['contacts']}\n"
+            f"📞 *Contacts*: {escape_markdown_v1(user_data[message.chat.id]['contacts'])}\n"
             f"---------------------\n"
             f"💡 **Need help or want to make changes to your profile?\nSimply use the /help command.**"
         )
@@ -691,7 +691,6 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
             photo = message.photo[-1]
             file_info = user_bot.get_file(photo.file_id)
             downloaded_file = user_bot.download_file(file_info.file_path)
-            user_id = message.chat.id
 
             # Check if a local profile photo exists
             save_path = os.path.join(images_dir, f'user{message.chat.id}_photo.jpg')
@@ -971,6 +970,6 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
     def handle_generic_messages(message):
         user_bot.send_message(
             message.chat.id,
-            "If you have any questions or need help, just type /help and I’ll guide you! 😊"
+            "If you have any questions, just type /help and we’ll guide you!😊\n\nDidn’t find what you were looking for?\nWrite us at bot.random.cappuccino@gmail.com"
         )
 

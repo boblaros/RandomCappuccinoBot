@@ -16,21 +16,74 @@ from utils.db import (get_users_from_db,
 
 email_pattern = re.compile(
     r"^[a-zA-Z0-9._%+-]+@(?:"
-    r"studbocconi\.it|"                # Bocconi
-    r"studenti\.unibocconi\.it|"       # Bocconi
-    r"studenti\.unimi\.it|"            # Università degli Studi di Milano (UniMi)
-    r"mail\.polimi\.it|"               # Politecnico di Milano (PoliMi)
-    r"icatt\.it|"                      # Università Cattolica del Sacro Cuore (Cattolica)
-    r"studenti\.uniroma1\.it|"         # Sapienza Università di Roma
-    r"studenti\.unibo\.it|"            # Università di Bologna
-    r"studenti\.unito\.it|"            # Università degli Studi di Torino
-    r"studenti\.unina\.it|"            # Università degli Studi di Napoli Federico II
-    r"studenti\.unipd\.it|"            # Università degli Studi di Padova
-    r"studenti\.unipi\.it|"            # Università di Pisa
-    r"studenti\.unisa\.it|"            # Università degli Studi di Salerno
-    r"studenti\.unica\.it"             # Università degli Studi di Cagliari
+    # Университеты
+    r"studbocconi\.it|"
+    r"studenti\.unibocconi\.it|"
+    r"studenti\.unimi\.it|"
+    r"mail\.polimi\.it|"
+    r"icatt\.it|"
+    r"studenti\.uniroma1\.it|"
+    r"studenti\.uniroma2\.it|"
+    r"studenti\.uniroma3\.it|"
+    r"studenti\.unibo\.it|"
+    r"studenti\.unito\.it|"
+    r"studenti\.unina\.it|"
+    r"studenti\.unipd\.it|"
+    r"studenti\.unipi\.it|"
+    r"studenti\.unisa\.it|"
+    r"studenti\.unica\.it|"
+    r"studenti\.units\.it|"
+    r"studenti\.unife\.it|"
+    r"studenti\.uniba\.it|"
+    r"studenti\.uninsubria\.it|"
+    r"studenti\.unimib\.it|"
+    r"studenti\.univr\.it|"
+    r"studenti\.unige\.it|"
+    r"studenti\.unich\.it|"
+    r"studenti\.unimol\.it|"
+    r"studenti\.unibas\.it|"
+    r"studenti\.unisannio\.it|"
+    r"studenti\.lum\.it|"
+    r"studenti\.iusspavia\.it|"
+    r"studenti\.luiss\.it|"
+    r"studenti\.unistrasi\.it|"
+    r"studenti\.unistrapg\.it|"
+
+    # Высшие школы и институты
+    r"studenti\.santannapisa\.it|"
+    r"studenti\.sssup\.it|"
+    r"studenti\.ssm\.it|"
+    r"studenti\.imtlucca\.it|"
+
+    # Сектор AFAM – художественные и музыкальные вузы
+    r"fadbrera\.edu\.it|"
+    r"abafg\.edu\.it|"
+    r"abafi\.edu\.it|"
+    r"abana\.edu\.it|"
+    r"abav\.edu\.it|"
+    r"abaq\.edu\.it|"
+    r"abaperugia\.edu\.it|"
+    r"abaurbino\.edu\.it|"
+    r"abareggio\.edu\.it|"
+
+    # Консерватории
+    r"consmilano\.it|"
+    r"conservatorioroma\.it|"
+    r"consbo\.it|"
+    r"conservatorio\.palermo\.it|"
+    r"conservatorio\.torino\.it|"
+
+    # Прочие частные и специализированные
+    r"unirsm\.sm|"
+    r"unisob\.na\.it|"
+    r"unifortunato\.eu|"
+    r"uniecampus\.it|"
+    r"unipegaso\.it|"
+    r"unitelmasapienza\.it|"
+    r"unimarconi\.it"
     r")$"
 )
+
 
 def common_interests(user1_interests, user2_interests):
     # Приводим интересы к нижнему регистру и убираем пробелы
