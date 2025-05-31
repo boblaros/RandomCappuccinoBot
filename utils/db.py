@@ -323,3 +323,37 @@ def update_bot_status(new_status):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("UPDATE bot_status SET status = ? WHERE id = 1", (new_status,))
+
+def finalize_all_old_pairs():
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+
+        # Получаем дату самой последней пары
+        cur.execute("SELECT MAX(creation_date) FROM pair_registry")
+        latest_date = cur.fetchone()[0]
+
+        # Все старые пары (до последнего запуска)
+        cur.execute("""
+            SELECT pair_id, meeting_status_user1, meeting_status_user2
+            FROM pair_registry
+            WHERE user2_id != -1 AND creation_date < ?
+        """, (latest_date,))
+        rows = cur.fetchall()
+
+        for pair_id, status1, status2 in rows:
+            # Обновим обе стороны, если они None
+            if status1 is None and status2 == 1:
+                cur.execute("UPDATE pair_registry SET meeting_status_user1 = 1 WHERE pair_id = ?", (pair_id,))
+            elif status1 is None and status2 == 0:
+                cur.execute("UPDATE pair_registry SET meeting_status_user1 = 0 WHERE pair_id = ?", (pair_id,))
+            elif status1 is None and status2 is None:
+                cur.execute("UPDATE pair_registry SET meeting_status_user1 = 0 WHERE pair_id = ?", (pair_id,))
+
+            if status2 is None and status1 == 1:
+                cur.execute("UPDATE pair_registry SET meeting_status_user2 = 1 WHERE pair_id = ?", (pair_id,))
+            elif status2 is None and status1 == 0:
+                cur.execute("UPDATE pair_registry SET meeting_status_user2 = 0 WHERE pair_id = ?", (pair_id,))
+            elif status2 is None and status1 is None:
+                cur.execute("UPDATE pair_registry SET meeting_status_user2 = 0 WHERE pair_id = ?", (pair_id,))
+
+        conn.commit()

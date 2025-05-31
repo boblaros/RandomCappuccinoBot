@@ -34,7 +34,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         Отправляет список пользовательских команд с кнопками.
         """
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
             return
 
         help_text = (
@@ -173,7 +173,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         """
 
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
             return
 
         about_text = (
@@ -193,7 +193,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         Отправляет правила использования бота и участия в подборе пар.
         """
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
             return
 
         rules_text = (
@@ -215,7 +215,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         """
 
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
             return
 
         faq_text = (
@@ -309,19 +309,24 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         if not check_message_for_command(user_bot, call.message):
             return
 
-        # Обновляем текст сообщения, убирая клавиатуру и добавляя новый текст
         new_text = call.message.text + "\n\n👉 *Fill out the questionnaire*"
         user_bot.edit_message_text(new_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown")
 
-        # Отправляем следующее сообщение
         user_bot.send_message(call.message.chat.id, "Please enter your first and last name:")
         user_bot.register_next_step_handler(call.message, ask_gender)
 
     def ask_gender(message):
         if not check_message_for_command(user_bot, message): return
-        user_data[message.chat.id]['name'] = message.text
 
-        # Создаем кнопки для выбора пола
+        name = message.text.strip()
+        if len(name) > MAX_NAME_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"Your name is too long. Please enter a name shorter than {MAX_NAME_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, ask_gender)
+            return
+
+        user_data[message.chat.id]['name'] = name
+
         markup = types.InlineKeyboardMarkup()
         markup.add(
             types.InlineKeyboardButton("Male", callback_data="gender_male"),
@@ -329,7 +334,6 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
             types.InlineKeyboardButton("Skip", callback_data="gender_skip")
         )
 
-        # Отправляем сообщение с кнопками
         user_bot.send_message(message.chat.id, "Please select your gender:", reply_markup=markup)
 
     @user_bot.callback_query_handler(func=lambda call: call.data.startswith("gender_"))
@@ -361,48 +365,87 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
 
     def ask_city(message):
         if not check_message_for_command(user_bot, message): return
-        user_bot.send_message(message.chat.id, "Which city are you studying in?")
-        user_bot.register_next_step_handler(message, ask_occupation)
 
-    def ask_occupation(message):
-        if not check_message_for_command(user_bot, message): return
-        user_data[message.chat.id]['city'] = message.text
-        user_bot.send_message(message.chat.id, "😊 Tell us a bit about yourself! What do you do? Write a short sentence that describes you (e.g., 'I’m a psychology student who loves exploring how people think and behave.').")
+        city = message.text.strip()
+        if len(city) > MAX_CITY_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"City name is too long. Please enter a city name under {MAX_CITY_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, ask_city)
+            return
+
+        user_data[message.chat.id]['city'] = city
+        user_bot.send_message(message.chat.id,
+                              "😊 Tell us a bit about yourself! What do you do? Write a short sentence that describes you (e.g., 'I’m a psychology student who loves exploring how people think and behave.')")
         user_bot.register_next_step_handler(message, ask_program)
 
     def ask_program(message):
         if not check_message_for_command(user_bot, message): return
-        user_data[message.chat.id]['occupation'] = message.text
+
+        occupation = message.text.strip()
+        if len(occupation) > MAX_OCCUPATION_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"That’s a bit too long. Please keep it under {MAX_OCCUPATION_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, ask_program)
+            return
+
+        user_data[message.chat.id]['occupation'] = occupation
         user_bot.send_message(message.chat.id, "Please enter your study program:")
         user_bot.register_next_step_handler(message, ask_interests)
 
     def ask_interests(message):
         if not check_message_for_command(user_bot, message): return
-        user_data[message.chat.id]['program'] = message.text
+
+        program = message.text.strip()
+        if len(program) > MAX_PROGRAM_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"Please shorten your program name to under {MAX_PROGRAM_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, ask_interests)
+            return
+
+        user_data[message.chat.id]['program'] = program
         user_bot.send_message(message.chat.id,
-                         "🎯 Please share your interests (the more, the better!). List them separated by commas (e.g., AI, reading, travelling, photography) so we can match you with someone who shares your passions! ✨")
+                              "🎯 Please share your interests (the more, the better!). List them separated by commas (e.g., AI, reading, travelling, photography) so we can match you with someone who shares your passions! ✨")
         user_bot.register_next_step_handler(message, ask_age)
 
     def ask_age(message):
         if not check_message_for_command(user_bot, message): return
-        user_data[message.chat.id]['interests'] = message.text
+
+        interests = message.text.strip()
+        if len(interests) > MAX_INTERESTS_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"Please limit your interests list to {MAX_INTERESTS_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, ask_age)
+            return
+
+        user_data[message.chat.id]['interests'] = interests
         user_bot.send_message(message.chat.id, "Please enter your age:")
         user_bot.register_next_step_handler(message, ask_contacts)
 
     def ask_contacts(message):
         if not check_message_for_command(user_bot, message): return
+
         try:
-            user_data[message.chat.id]['age'] = int(message.text)
-            user_bot.send_message(message.chat.id, "Please enter your contact information (e.g., Instagram or WhatsApp):")
+            age = int(message.text)
+            if not (MIN_AGE <= age <= MAX_AGE):
+                raise ValueError
+            user_data[message.chat.id]['age'] = age
+            user_bot.send_message(message.chat.id,
+                                  "Please enter your contact information (e.g., Instagram or WhatsApp):")
             user_bot.register_next_step_handler(message, save_to_db)
         except ValueError:
-            user_bot.send_message(message.chat.id, "Please enter a valid age (number).")
+            user_bot.send_message(message.chat.id, f"Please enter a valid age between {MIN_AGE} and {MAX_AGE}.")
             user_bot.register_next_step_handler(message, ask_contacts)
 
     def save_to_db(message):
-        user_data[message.chat.id]['contacts'] = message.text
-        user_data[message.chat.id][
-            'username'] = message.chat.username or ''  # Сохраняем username или пустую строку, если username не задан
+        contacts = message.text.strip()
+        if len(contacts) > MAX_CONTACTS_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"Contact info is too long. Please keep it under {MAX_CONTACTS_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, save_to_db)
+            return
+
+        user_data[message.chat.id]['contacts'] = contacts
+        user_data[message.chat.id]['username'] = message.chat.username or ''
 
         # Сохранение данных в SQLite с использованием контекстного менеджера
         with sqlite3.connect(DB_PATH) as conn_save_to_db:
@@ -425,16 +468,14 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
                 1
             ))
 
-            # Сохранение данных в таблицу user_status
             cursor_save_to_db.execute('''
                 INSERT INTO ban_list (id, ban_status) 
                 VALUES (?, ?)
-            ''', (
-                message.chat.id, 0
-            ))
+            ''', (message.chat.id, 0))
 
             conn_save_to_db.commit()
-        # Формирование сообщения с профилем на итальянском
+
+        # Профиль
         profile_message = (
             f"Done! 🙌\n\n"
             f"Here’s how your profile will appear in the message we send to your match:\n\n"
@@ -450,30 +491,21 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
             f"💡 **Need help or want to make changes to your profile?\nSimply use the /help command.**"
         )
 
-        # Проверка на наличие фото профиля
+        # Фото профиля
         photos = user_bot.get_user_profile_photos(message.chat.id, limit=1)
         photo_path = os.path.join(images_dir, 'welcome-pic.jpg')
         if photos.total_count > 0:
-            # Отправляем сообщение профиля с фото и кнопкой
             user_bot.send_photo(
                 message.chat.id,
                 photos.photos[0][0].file_id,
                 caption=profile_message, parse_mode="Markdown"
             )
             with open(photo_path, 'rb') as photo:
-                user_bot.send_photo(
-                    message.chat.id,
-                    photo)
+                user_bot.send_photo(message.chat.id, photo)
         else:
-            # Если фото нет, отправляем просто текст
-            user_bot.send_message(
-                message.chat.id,
-                profile_message, parse_mode="Markdown"
-            )
+            user_bot.send_message(message.chat.id, profile_message, parse_mode="Markdown")
             with open(photo_path, 'rb') as photo:
-                user_bot.send_photo(
-                    message.chat.id,
-                    photo)
+                user_bot.send_photo(message.chat.id, photo)
 
         del user_data[message.chat.id]
 
@@ -484,7 +516,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         """
 
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
             return
 
         markup = types.InlineKeyboardMarkup()
@@ -571,14 +603,14 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
     def edit_name(message):
         if not check_message_for_command(user_bot, message): return
         name = message.text.strip()
-        with sqlite3.connect(DB_PATH) as conn_edit_name:
-            cursor_edit_name = conn_edit_name.cursor()
-            cursor_edit_name.execute(
-                "UPDATE users SET name = ? WHERE id = ?",
-                (name, message.chat.id)
-            )
-            conn_edit_name.commit()
+        if len(name) > MAX_NAME_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"Name is too long. Please keep it under {MAX_NAME_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, edit_name)
+            return
 
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("UPDATE users SET name = ? WHERE id = ?", (name, message.chat.id))
         user_bot.send_message(message.chat.id, "Your name has been updated successfully!")
 
     def edit_gender(message):
@@ -614,70 +646,66 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
     def edit_city(message):
         if not check_message_for_command(user_bot, message): return
         city = message.text.strip()
-        with sqlite3.connect(DB_PATH) as conn_edit_city:
-            cursor_edit_city = conn_edit_city.cursor()
-            cursor_edit_city.execute(
-                "UPDATE users SET city = ? WHERE id = ?",
-                (city, message.chat.id)
-            )
-            conn_edit_city.commit()
+        if len(city) > MAX_CITY_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"City name is too long. Please keep it under {MAX_CITY_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, edit_city)
+            return
 
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("UPDATE users SET city = ? WHERE id = ?", (city, message.chat.id))
         user_bot.send_message(message.chat.id, "Your city has been updated successfully!")
 
     def edit_occupation(message):
         if not check_message_for_command(user_bot, message): return
         occupation = message.text.strip()
-        with sqlite3.connect(DB_PATH) as conn_edit_occupation:
-            cursor_edit_occupation = conn_edit_occupation.cursor()
-            cursor_edit_occupation.execute(
-                "UPDATE users SET occupation = ? WHERE id = ?",
-                (occupation, message.chat.id)
-            )
-            conn_edit_occupation.commit()
+        if len(occupation) > MAX_OCCUPATION_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"Occupation description is too long. Max allowed: {MAX_OCCUPATION_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, edit_occupation)
+            return
 
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("UPDATE users SET occupation = ? WHERE id = ?", (occupation, message.chat.id))
         user_bot.send_message(message.chat.id, "Your occupation has been updated successfully!")
 
     def edit_program(message):
         if not check_message_for_command(user_bot, message): return
         program = message.text.strip()
-        with sqlite3.connect(DB_PATH) as conn_edit_program:
-            cursor_edit_program = conn_edit_program.cursor()
-            cursor_edit_program.execute(
-                "UPDATE users SET program = ? WHERE id = ?",
-                (program, message.chat.id)
-            )
-            conn_edit_program.commit()
+        if len(program) > MAX_PROGRAM_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"Program name is too long. Max allowed: {MAX_PROGRAM_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, edit_program)
+            return
 
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("UPDATE users SET program = ? WHERE id = ?", (program, message.chat.id))
         user_bot.send_message(message.chat.id, "Your program has been updated successfully!")
 
     def edit_interests(message):
         if not check_message_for_command(user_bot, message): return
         interests = message.text.strip()
-        with sqlite3.connect(DB_PATH) as conn_edit_interests:
-            cursor_edit_interests = conn_edit_interests.cursor()
-            cursor_edit_interests.execute(
-                "UPDATE users SET interests = ? WHERE id = ?",
-                (interests, message.chat.id)
-            )
-            conn_edit_interests.commit()
+        if len(interests) > MAX_INTERESTS_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"Too many characters in interests. Please keep it under {MAX_INTERESTS_LENGTH}.")
+            user_bot.register_next_step_handler(message, edit_interests)
+            return
 
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("UPDATE users SET interests = ? WHERE id = ?", (interests, message.chat.id))
         user_bot.send_message(message.chat.id, "Your interests have been updated successfully!")
 
     def edit_age(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         try:
             age = int(message.text.strip())
-            with sqlite3.connect(DB_PATH) as conn_edit_age:
-                cursor_edit_age = conn_edit_age.cursor()
-                cursor_edit_age.execute(
-                    "UPDATE users SET age = ? WHERE id = ?",
-                    (age, message.chat.id)
-                )
-                conn_edit_age.commit()
-
+            if not (MIN_AGE <= age <= MAX_AGE):
+                raise ValueError
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("UPDATE users SET age = ? WHERE id = ?", (age, message.chat.id))
             user_bot.send_message(message.chat.id, "Your age has been updated successfully!")
         except ValueError:
-            user_bot.send_message(message.chat.id, "Please enter a valid number for your age.")
+            user_bot.send_message(message.chat.id, f"Please enter a valid age between {MIN_AGE} and {MAX_AGE}.")
             user_bot.register_next_step_handler(message, edit_age)
 
     def edit_photo(message):
@@ -707,18 +735,18 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
             user_bot.register_next_step_handler(message, edit_photo)
 
     def edit_contacts(message):
-        if not check_message_for_command(bot, message): return
+        if not check_message_for_command(user_bot, message): return
         contacts = message.text.strip()
-        try:
-            with sqlite3.connect(DB_PATH) as conn_edit_contacts:
-                cursor_edit_contacts = conn_edit_contacts.cursor()
-                cursor_edit_contacts.execute(
-                    "UPDATE users SET contacts = ? WHERE id = ?",
-                    (contacts, message.chat.id)
-                )
-                conn_edit_contacts.commit()
+        if len(contacts) > MAX_CONTACTS_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"Contact info is too long. Please keep it under {MAX_CONTACTS_LENGTH} characters.")
+            user_bot.register_next_step_handler(message, edit_contacts)
+            return
 
-                user_bot.send_message(message.chat.id, "Your contacts have been updated successfully!")
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("UPDATE users SET contacts = ? WHERE id = ?", (contacts, message.chat.id))
+            user_bot.send_message(message.chat.id, "Your contacts have been updated successfully!")
         except Exception as e:
             print(message.chat.id, f"An unexpected error occurred: {e}")
 
@@ -726,6 +754,13 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         email = message.text
 
         if not check_message_for_command(bot, message): return
+
+        if len(email) > MAX_EMAIL_LENGTH:
+            user_bot.send_message(message.chat.id,
+                                  f"Email is too long. Please enter an email address under 100 characters.")
+            user_bot.register_next_step_handler(message, handle_email)
+            return
+
         if email_pattern.match(email):
             if is_email_in_use(email):  # Проверка на уникальность email
                 user_bot.send_message(message.chat.id, "This email is already in use. Please try with a different one.")
@@ -745,10 +780,12 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
                     user_bot.register_next_step_handler(message, verify_code)  # Ожидаем ввода кода
                 else:
                     user_bot.send_message(message.chat.id,
-                                     "An error occurred while sending the verification email. Please try again later")
+                                          "An error occurred while sending the verification email. Please try again later")
                     user_bot.register_next_step_handler(message, handle_email)
         else:
-            user_bot.send_message(message.chat.id, "Invalid email format. Please enter a correct *university email* address", parse_mode="markdown")
+            user_bot.send_message(message.chat.id,
+                                  "Invalid email format. Please enter a correct *university email* address",
+                                  parse_mode="markdown")
             user_bot.register_next_step_handler(message, handle_email)  # Ожидаем повторного ввода email
 
     def verify_code(message):
@@ -782,10 +819,18 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
                     )
 
                 else:
-                    user_bot.send_message(message.chat.id, "Invalid code. Please try again")
+                    user_bot.send_message(
+                        message.chat.id,
+                        "Invalid code. Please try again.\n\n"
+                        "If you entered the wrong email address, type /skip and then /start to enter the correct one.",
+                        parse_mode="markdown"
+                    )
                     user_bot.register_next_step_handler(message, verify_code)  # Ожидаем повторного ввода кода
             except ValueError:
-                user_bot.send_message(message.chat.id, "Invalid input. Please enter the numeric verification code")
+                user_bot.send_message(message.chat.id, "Invalid input. Please enter the numeric verification code. \n\n"
+                        "If you entered the wrong email address, type /skip and then /start to enter the correct one.",
+                        parse_mode="markdown"
+                    )
                 user_bot.register_next_step_handler(message, verify_code)  # Ожидаем повторного ввода кода
         else:
             user_bot.send_message(message.chat.id,
@@ -797,7 +842,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         Обрабатывает команду удаления профиля. Спрашивает, не хочет ли пользователь поставить бота на паузу.
         """
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
             return
 
         # Inline-клавиатура с вариантами
@@ -863,7 +908,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         """
 
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "Please register before using this command.")
+            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
             return
 
         user_bot.send_message(message.chat.id, "Please rate our bot from 1 to 10:")
@@ -911,45 +956,64 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         else:
             user_bot.send_message(message.chat.id, "Something went wrong. Please try again using /feedback.")
 
-    @user_bot.callback_query_handler(func=lambda call: call.data.startswith("feedback"))
+    @user_bot.callback_query_handler(func=lambda c: c.data.startswith("feedback"))
     def feedback_callback(call):
         if not is_user_registered(call.message.chat.id):
             user_bot.send_message(call.message.chat.id,
-                             "You are not registered. Please register first using the /start command.")
+                                  "You are not registered. Please register first using the /start command.")
             return
 
-        data = call.data.split("_")
-        action = data[1]  # yes или no
-        pair_id = int(data[2])
-        user_id = int(data[3])
+        action, pair_id, user_id = call.data.split("_")[1:]
+        pair_id, user_id = int(pair_id), int(user_id)
 
         with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT user1_id, user2_id FROM pair_registry WHERE pair_id = ?", (pair_id,))
-            user1_id, user2_id = cursor.fetchone()
+            cur = conn.cursor()
 
-        user_role = "user1" if user_id == user1_id else "user2" if user_id == user2_id else None
-        if not user_role:
-            return
+            cur.execute("SELECT user1_id, user2_id FROM pair_registry WHERE pair_id=?", (pair_id,))
+            user1_id, user2_id = cur.fetchone()
 
-        user_bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                                      reply_markup=None)
+            user_role = ("user1" if user_id == user1_id else "user2" if user_id == user2_id else None)
+            if user_role is None:
+                return
 
-        if action == "yes":
-            update_meeting_status(pair_id, user_role, 1)
-            user_bot.send_message(user_id,
-                             "Thank you for your feedback! If you want to leave more detailed feedback, please use the /feedback command.")
+            cur.execute(f"""SELECT meeting_status_{user_role}
+                            FROM pair_registry
+                            WHERE pair_id=?""", (pair_id,))
+            status = cur.fetchone()[0]
 
-        elif action == "no":
-            update_meeting_status(pair_id, user_role, 0)
-            user_bot.send_message(user_id, "Could you explain why the meeting didn’t happen?")
+            if status is not None:
+                user_bot.send_message(
+                    call.message.chat.id,
+                    "You’ve already responded. Your feedback has been saved 👍"
+                )
+                try:
+                    user_bot.edit_message_reply_markup(
+                        call.message.chat.id, call.message.message_id, reply_markup=None
+                    )
+                except:
+                    pass
+                return
 
-            user_bot.clear_step_handler_by_chat_id(user_id)
+            try:
+                user_bot.edit_message_reply_markup(
+                    chat_id=call.message.chat.id,
+                    message_id=call.message.message_id,
+                    reply_markup=None)
+            except:
+                pass
 
-            # Устанавливаем step handler для ответа пользователя
-            user_bot.register_next_step_handler_by_chat_id(user_id, lambda message: collect_failure_reason(message, user_id,
-                                                                                                      user_role,
-                                                                                                      pair_id))
+            if action == "yes":
+                update_meeting_status(pair_id, user_role, 1)
+                user_bot.send_message(
+                    user_id,
+                    "Thank you for your feedback! If you want to leave more detailed feedback, please use the /feedback command.")
+            else:
+                update_meeting_status(pair_id, user_role, 0)
+                user_bot.send_message(user_id, "Could you explain why the meeting didn’t happen?")
+                user_bot.register_next_step_handler_by_chat_id(
+                    user_id,
+                    lambda m: collect_failure_reason(m, user_id, user_role, pair_id)
+                )
 
     def collect_failure_reason(message, user_id, user_role, pair_id):
         reason = message.text

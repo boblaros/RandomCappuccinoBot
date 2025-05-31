@@ -1,72 +1,105 @@
+# Built-in libraries
 import random
-from collections import defaultdict
+import itertools
+
+# Third-party libraries
+import numpy as np
 from telebot import types
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Local modules
 from utils.db import *
-from config import ADMIN_IDS, DB_PATH
-import sqlite3
 from utils.utils import *
-import os
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # Алгоритм подбора пар
 def generate_pairs():
-    users = get_users_from_db()
-    matches = defaultdict(list)
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+                SELECT u.id, u.occupation, u.interests, u.previous_pairs
+                FROM users u
+                LEFT JOIN ban_list b ON u.id = b.id
+                WHERE u.status = 1 AND (b.ban_status = 0)
+            ''')
+        users = cursor.fetchall()
 
-    # Перебор всех возможных пар
-    for i in range(len(users)):
-        for j in range(i + 1, len(users)):
-            user1_id = users[i]['id']
-            user2_id = users[j]['id']
-            user1_interests = users[i]['interests']
-            user2_interests = users[j]['interests']
+    user_ids = []
+    profile_texts = []
+    previous_pairs_dict = {}
 
-            common_count = common_interests(user1_interests, user2_interests)
+    # 1. Подготовка текстов и парсинг previous_pairs
+    for user in users:
+        user_id, description, interests, previous = user
+        full_text = f"{description}. Interests: {interests}"
+        user_ids.append(user_id)
+        profile_texts.append(full_text)
 
-            if common_count > 0 and str(user2_id) not in users[i]['previous_pairs'] and str(user1_id) not in users[j]['previous_pairs']:
-                matches[user1_id].append((user2_id, common_count))
-                matches[user2_id].append((user1_id, common_count))
+        if previous:
+            cleaned = previous.lstrip(',')  # удаляем начальную запятую
+            previous_pairs = set(map(int, cleaned.split(','))) if cleaned else set()
+        else:
+            previous_pairs = set()
+        previous_pairs_dict[user_id] = previous_pairs
 
-    # Подбор пар
+    # 2. Векторизация
+    embeddings = model.encode(profile_texts, normalize_embeddings=True)
+
+    # 3. Матрица схожести
+    sim_matrix = cosine_similarity(embeddings)
+    np.fill_diagonal(sim_matrix, -1)
+
+    # 4. Жадный подбор НОВЫХ пар
+    used = set()
     pairs = []
-    paired_users = set()
 
-    for user, potential_matches in matches.items():
-        if user not in paired_users:
-            potential_matches = sorted(potential_matches, key=lambda x: x[1], reverse=True)
+    while len(used) < len(user_ids) - 1:
+        max_sim = -1
+        best_pair = (None, None)
 
-            for match, common_count in potential_matches:
-                if match not in paired_users:
-                    pairs.append((user, match))
-                    paired_users.add(user)
-                    paired_users.add(match)
-                    break
+        for i, j in itertools.combinations(range(len(user_ids)), 2):
+            if i in used or j in used:
+                continue
 
-    # Найти всех пользователей, у которых нет пары
-    all_user_ids = set(user['id'] for user in users)
-    paired_user_ids = set(user_id for pair in pairs for user_id in pair)
-    unpaired_user_ids = list(all_user_ids - paired_user_ids)
+            id_i = user_ids[i]
+            id_j = user_ids[j]
 
-    # Случайно формируем пары из оставшихся
-    random.shuffle(unpaired_user_ids)
-    while len(unpaired_user_ids) > 1:
-        user1 = unpaired_user_ids.pop()
-        user2 = unpaired_user_ids.pop()
-        pairs.append((user1, user2))
+            if (id_j in previous_pairs_dict[id_i]) or (id_i in previous_pairs_dict[id_j]):
+                continue  # если такая пара уже была — пропускаем
 
-    # Если остался один пользователь
-    remaining_user = None
-    if unpaired_user_ids:
-        remaining_user = unpaired_user_ids[0]
-        del unpaired_user_ids  # Удаляем переменную
+            if sim_matrix[i][j] > max_sim:
+                max_sim = sim_matrix[i][j]
+                best_pair = (i, j)
+
+        i, j = best_pair
+        if i is None or j is None:
+            break  # не осталось новых допустимых пар
+
+        used.add(i)
+        used.add(j)
+        pairs.append((user_ids[i], user_ids[j]))
+
+    # 5. Рандомные пары из оставшихся, если ничего не подошло
+    remaining_indices = [idx for idx in range(len(user_ids)) if idx not in used]
+    random.shuffle(remaining_indices)
+
+    while len(remaining_indices) >= 2:
+        i = remaining_indices.pop()
+        j = remaining_indices.pop()
+        pairs.append((user_ids[i], user_ids[j]))
+
+    # 6. Один остался без пары?
+    remaining_user = user_ids[remaining_indices[0]] if remaining_indices else None
 
     return pairs, remaining_user
 
 # Функция для уведомления пользователей о новых парах
-def notify_pairs(bot, pairs):
+def notify_pairs(pairs):
     """
     Уведомляет пользователей о новой паре, отправляет карточку партнёра и фото профиля.
     """
-
     def send_profile(user_id, match_id, match_profile, gender):
         """
         Отправляет карточку профиля и фото.
@@ -149,7 +182,7 @@ def notify_pairs(bot, pairs):
                 send_profile(user2_id, user1_id, user1_profile[:-1], user1_profile[-1])
 
 # Основной процесс подбора пар
-def run_pairing_process(bot):
+def run_pairing_process():
     pairs, remaining_user = generate_pairs()
 
     conn = sqlite3.connect(DB_PATH)
@@ -157,7 +190,7 @@ def run_pairing_process(bot):
 
     if pairs:
         save_pairs_to_db(pairs)
-        notify_pairs(bot, pairs)
+        notify_pairs(pairs)
         for user1_id, user2_id in pairs:
             # Получаем интересы обоих пользователей
             cursor.execute("SELECT interests FROM users WHERE id = ?", (user1_id,))
@@ -174,6 +207,10 @@ def run_pairing_process(bot):
                 INSERT INTO pair_registry (user1_id, user2_id, common_interests, is_unpaired)
                 VALUES (?, ?, ?, ?)
             ''', (user1_id, user2_id, common_count, 0))
+
+            starter_id = random.choice([user1_id, user2_id])
+            bot.send_message(starter_id, "This time, you write first 👆")
+
         print("Pairs saved to the registry.")
     else:
         print("No available matches for pairing")
@@ -189,42 +226,46 @@ def run_pairing_process(bot):
     conn.close()
 
     if remaining_user:
-        notify_admins_about_unpaired_user(bot, remaining_user)
+        notify_admins_about_unpaired_user(remaining_user)
 
-def notify_admins_about_unpaired_user(bot, user_id):
+def notify_admins_about_unpaired_user(user_id):
     # Отправляем уведомление администраторам
     for admin_id in ADMIN_IDS:
         bot.send_message(admin_id, f"User {user_id} did not get a match this time.")
 
-def check_bot_status_and_get_feedback(bot):
+def check_bot_status_and_get_feedback():
     status = get_bot_status()
     if status == 1:
         for admin_id in ADMIN_IDS:
             try:
                 bot.send_message(admin_id,
-                                 'Запускается сбор обратной связи по встречам (21:00 по Милану каждый день)')
+                                 'Weekly feedback collection has started (every Sunday at 10:00 AM, Milan time).')
             except Exception as e:
-                print(f"Не удалось уведомить администратора {admin_id}: {e}")
-        request_pair_feedback(bot)
+                print(f"Failed to notify administrator {admin_id}: {e}")
+        request_pair_feedback()
     else:
         for admin_id in ADMIN_IDS:
             try:
                 bot.send_message(admin_id,
-                                 'Сбор обратной связи по встречам не запускается - бот выключен (set_status = 0)')
+                                 'Feedback collection not started — the bot is turned off (set_status = 0).')
             except Exception as e:
-                print(f"Не удалось уведомить администратора {admin_id}: {e}")
-        print("Статус бота = 0, не запускаем request_pair_feedback")
+                print(f"Failed to notify administrator {admin_id}: {e}")
+        print("Bot status = 0, request_pair_feedback will not be executed")
 
-def request_pair_feedback(bot):
+def request_pair_feedback():
+    # Сначала обрабатываем все старые пары
+    finalize_all_old_pairs()
+
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT pair_id, user1_id, user2_id FROM pair_registry WHERE creation_date = (SELECT MAX(creation_date) FROM pair_registry)  AND user1_id <> -1 AND user2_id <> -1")
-
+            "SELECT pair_id, user1_id, user2_id FROM pair_registry "
+            "WHERE creation_date = (SELECT MAX(creation_date) FROM pair_registry) "
+            "AND user1_id <> -1 AND user2_id <> -1"
+        )
         pairs = cursor.fetchall()
 
-        for pair in pairs:
-            pair_id, user1_id, user2_id = pair
+        for pair_id, user1_id, user2_id in pairs:
             for user_id in [user1_id, user2_id]:
                 markup = types.InlineKeyboardMarkup()
                 yes_button = types.InlineKeyboardButton("Yes", callback_data=f"feedback_yes_{pair_id}_{user_id}")

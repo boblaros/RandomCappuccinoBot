@@ -13,21 +13,22 @@ def check_bot_status_and_run(bot):
         for admin_id in ADMIN_IDS:
             try:
                 bot.send_message(admin_id,
-                                 'Запускается подбор пар в рамках пилота (10:00 по Милану каждый день)')
+                                 'Weekly pairing has started (every Monday at 10:00 AM, Milan time).')
             except Exception as e:
-                print(f"Не удалось уведомить администратора {admin_id}: {e}")
-        run_pairing_process(bot)
+                print(f"Failed to notify administrator {admin_id}: {e}")
+        run_pairing_process()
     else:
         for admin_id in ADMIN_IDS:
             try:
                 bot.send_message(admin_id,
-                                 'Подбор пар не запускается, бот выключен (status = 0).')
+                                 'Pairing was not started because the bot is turned off (status = 0).')
             except Exception as e:
-                print(f"Не удалось уведомить администратора {admin_id}: {e}")
-        print("Статус бота = 0, не запускаем run_pairing_process")
+                print(f"Failed to notify administrator {admin_id}: {e}")
+        print("Bot status = 0, run_pairing_process will not be executed")
 
-def check_bot_status_and_feedback(bot):
-    check_bot_status_and_get_feedback(bot)
+
+def check_bot_status_and_feedback():
+    check_bot_status_and_get_feedback()
 
 def start_scheduler(bot):
     italy_tz = pytz.timezone("Europe/Rome")
@@ -39,10 +40,10 @@ def start_scheduler(bot):
     )
 
     scheduler.add_job(
-        lambda: check_bot_status_and_feedback(bot),
+        lambda: check_bot_status_and_feedback(),
         CronTrigger(day_of_week='sun', hour=10, minute=0, timezone=italy_tz)
     )
 
     time.sleep(5)
     scheduler.start()
-    print("Планировщик запущен. Ожидание выполнения задачи...")
+    print("The scheduler has started. Waiting for the task to execute...")

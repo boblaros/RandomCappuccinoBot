@@ -9,7 +9,7 @@ def register_admin_handlers(admin_bot):
     def handle_start_pairing(message):
         if message.chat.id in ADMIN_IDS:
             admin_bot.send_message(message.chat.id, "Starting pair matching... ⏳")
-            run_pairing_process(bot)
+            run_pairing_process()
             admin_bot.send_message(message.chat.id, "Pair matching completed!")
         else:
             admin_bot.send_message(message.chat.id, "You do not have permission to execute this command.")
@@ -31,7 +31,7 @@ def register_admin_handlers(admin_bot):
         Allows admins to edit a user profile by selecting search criteria.
         """
         if not is_user_registered(message.chat.id):
-            admin_bot.send_message(message.chat.id, "Please register before using this command.")
+            admin_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
             return
 
         # Check if the user is an admin
@@ -55,7 +55,7 @@ def register_admin_handlers(admin_bot):
         if not is_user_registered(message.chat.id):
             admin_bot.send_message(
                 message.chat.id,
-                escape_markdown_v2("Please register before using this command."),
+                escape_markdown_v2("You are not registered. Please register first using the /start command."),
                 parse_mode="MarkdownV2"
             )
             return
@@ -82,7 +82,7 @@ def register_admin_handlers(admin_bot):
         """
         # Проверка, зарегистрирован ли пользователь
         if not is_user_registered(message.chat.id):
-            admin_bot.send_message(message.chat.id, "Please register before using this command.")
+            admin_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
             return
 
         # Проверка, является ли пользователь админом
