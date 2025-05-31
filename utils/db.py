@@ -8,6 +8,8 @@ def initialize_database():
     """
     Initializes the SQLite database and creates the necessary tables if they do not already exist.
     """
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
