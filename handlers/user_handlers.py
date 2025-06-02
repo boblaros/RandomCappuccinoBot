@@ -34,7 +34,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         Отправляет список пользовательских команд с кнопками.
         """
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
+            user_bot.send_message(message.chat.id, "You need to register first. Use /start to begin.")
             return
 
         help_text = (
@@ -68,7 +68,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         """
         if not is_user_registered(call.message.chat.id):
             user_bot.send_message(call.message.chat.id,
-                             "You are not registered. Please register first using the /start command.")
+                             "You need to register first. Use /start to begin.")
             return
 
         options_text = {
@@ -173,7 +173,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         """
 
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
+            user_bot.send_message(message.chat.id, "You need to register first. Use /start to begin.")
             return
 
         about_text = (
@@ -193,7 +193,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         Отправляет правила использования бота и участия в подборе пар.
         """
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
+            user_bot.send_message(message.chat.id, "You need to register first. Use /start to begin.")
             return
 
         rules_text = (
@@ -215,7 +215,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         """
 
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
+            user_bot.send_message(message.chat.id, "You need to register first. Use /start to begin.")
             return
 
         faq_text = (
@@ -374,8 +374,14 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
             return
 
         user_data[message.chat.id]['city'] = city
-        user_bot.send_message(message.chat.id,
-                              "😊 Tell us a bit about yourself! What do you do? Write a short sentence that describes you (e.g., 'I’m a psychology student who loves exploring how people think and behave.')")
+
+        user_bot.send_message(
+            message.chat.id,
+            "Tell us *who you are* in one sentence — your *field*, your *passion*,\nyour *vibe*. ✨\n\n"
+            "Example: _Psychology student exploring human behavior._",
+            parse_mode='Markdown'
+        )
+
         user_bot.register_next_step_handler(message, ask_program)
 
     def ask_program(message):
@@ -403,8 +409,14 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
             return
 
         user_data[message.chat.id]['program'] = program
-        user_bot.send_message(message.chat.id,
-                              "🎯 Please share your interests (the more, the better!). List them separated by commas (e.g., AI, reading, travelling, photography) so we can match you with someone who shares your passions! ✨")
+
+        user_bot.send_message(
+            message.chat.id,
+            "Tell us *about your interests* — *the more* you share, *the better* we can match you! 🧃\n\n"
+            "Example: _AI and machine learning, reading historical novels, solo travelling, street photography._",
+            parse_mode='Markdown'
+        )
+
         user_bot.register_next_step_handler(message, ask_age)
 
     def ask_age(message):
@@ -516,7 +528,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         """
 
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
+            user_bot.send_message(message.chat.id, "You need to register first. Use /start to begin.")
             return
 
         markup = types.InlineKeyboardMarkup()
@@ -544,7 +556,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
 
         if not is_user_registered(call.message.chat.id):
             user_bot.send_message(call.message.chat.id,
-                             "You are not registered. Please register first using the /start command.")
+                             "You need to register first. Use /start to begin.")
             return
 
         field = call.data.split("_")[1]
@@ -822,13 +834,13 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
                     user_bot.send_message(
                         message.chat.id,
                         "Invalid code. Please try again.\n\n"
-                        "If you entered the wrong email address, type /skip and then /start to enter the correct one.",
+                        "Entered the wrong email?\nType /skip, then /start to try again.",
                         parse_mode="markdown"
                     )
                     user_bot.register_next_step_handler(message, verify_code)  # Ожидаем повторного ввода кода
             except ValueError:
                 user_bot.send_message(message.chat.id, "Invalid input. Please enter the numeric verification code. \n\n"
-                        "If you entered the wrong email address, type /skip and then /start to enter the correct one.",
+                        "Entered the wrong email?\nType /skip, then /start to try again.",
                         parse_mode="markdown"
                     )
                 user_bot.register_next_step_handler(message, verify_code)  # Ожидаем повторного ввода кода
@@ -842,7 +854,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         Обрабатывает команду удаления профиля. Спрашивает, не хочет ли пользователь поставить бота на паузу.
         """
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
+            user_bot.send_message(message.chat.id, "You need to register first. Use /start to begin.")
             return
 
         # Inline-клавиатура с вариантами
@@ -908,7 +920,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         """
 
         if not is_user_registered(message.chat.id):
-            user_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
+            user_bot.send_message(message.chat.id, "You need to register first. Use /start to begin.")
             return
 
         user_bot.send_message(message.chat.id, "Please rate our bot from 1 to 10:")
@@ -960,7 +972,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
     def feedback_callback(call):
         if not is_user_registered(call.message.chat.id):
             user_bot.send_message(call.message.chat.id,
-                                  "You are not registered. Please register first using the /start command.")
+                                  "You need to register first. Use /start to begin.")
             return
 
         action, pair_id, user_id = call.data.split("_")[1:]

@@ -31,7 +31,7 @@ def register_admin_handlers(admin_bot):
         Allows admins to edit a user profile by selecting search criteria.
         """
         if not is_user_registered(message.chat.id):
-            admin_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
+            admin_bot.send_message(message.chat.id, "You need to register first. Use /start to begin.")
             return
 
         # Check if the user is an admin
@@ -55,7 +55,7 @@ def register_admin_handlers(admin_bot):
         if not is_user_registered(message.chat.id):
             admin_bot.send_message(
                 message.chat.id,
-                escape_markdown_v2("You are not registered. Please register first using the /start command."),
+                escape_markdown_v2("You need to register first. Use /start to begin."),
                 parse_mode="MarkdownV2"
             )
             return
@@ -82,7 +82,7 @@ def register_admin_handlers(admin_bot):
         """
         # Проверка, зарегистрирован ли пользователь
         if not is_user_registered(message.chat.id):
-            admin_bot.send_message(message.chat.id, "You are not registered. Please register first using the /start command.")
+            admin_bot.send_message(message.chat.id, "You need to register first. Use /start to begin.")
             return
 
         # Проверка, является ли пользователь админом
