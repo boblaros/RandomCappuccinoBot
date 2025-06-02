@@ -377,7 +377,7 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
 
         user_bot.send_message(
             message.chat.id,
-            "Tell us *who you are* in one sentence — your *field*, your *passion*,\nyour *vibe*. ✨\n\n"
+            "Tell us *who you are* in one sentence — your *field*, your *passion*, your *vibe*. ✨\n\n"
             "Example: _Psychology student exploring human behavior._",
             parse_mode='Markdown'
         )
