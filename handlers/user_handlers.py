@@ -361,7 +361,8 @@ def register_user_handlers(user_bot, user_feedback, verification_codes):
         )
 
         # Переходим к следующему шагу
-        ask_city(call.message)
+        user_bot.send_message(call.message.chat.id, "Please enter your city:")
+        user_bot.register_next_step_handler_by_chat_id(call.message.chat.id, ask_city)
 
     def ask_city(message):
         if not check_message_for_command(user_bot, message): return
