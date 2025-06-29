@@ -253,7 +253,7 @@ def check_bot_status_and_get_feedback():
         print("Bot status = 0, request_pair_feedback will not be executed")
 
 def request_pair_feedback():
-    # Сначала обрабатываем все старые пары
+    # First, finalize all old pairs
     finalize_all_old_pairs()
 
     with sqlite3.connect(DB_PATH) as conn:
@@ -267,9 +267,19 @@ def request_pair_feedback():
 
         for pair_id, user1_id, user2_id in pairs:
             for user_id in [user1_id, user2_id]:
-                markup = types.InlineKeyboardMarkup()
-                yes_button = types.InlineKeyboardButton("Yes", callback_data=f"feedback_yes_{pair_id}_{user_id}")
-                no_button = types.InlineKeyboardButton("No", callback_data=f"feedback_no_{pair_id}_{user_id}")
-                markup.add(yes_button, no_button)
+                try:
+                    markup = types.InlineKeyboardMarkup()
+                    yes_button = types.InlineKeyboardButton("Yes", callback_data=f"feedback_yes_{pair_id}_{user_id}")
+                    no_button = types.InlineKeyboardButton("No", callback_data=f"feedback_no_{pair_id}_{user_id}")
+                    markup.add(yes_button, no_button)
 
-                bot.send_message(user_id, "Did the meeting happen?", reply_markup=markup)
+                    bot.send_message(user_id, "Did the meeting happen?", reply_markup=markup)
+
+                except Exception as e:
+                    # Notify all admins about the failure
+                    for admin_id in ADMIN_IDS:
+                        try:
+                            bot.send_message(admin_id,
+                                f"❗️Failed to send feedback message to user {user_id} for pair {pair_id}.\nError: {e}")
+                        except Exception as admin_error:
+                            print(f"Failed to notify admin {admin_id}: {admin_error}")
