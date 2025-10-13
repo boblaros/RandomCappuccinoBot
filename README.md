@@ -29,18 +29,25 @@ Main user commands (set in `main.py`):
 
 ## Repository structure
 
-├─ data/
-│ ├─ Logo/ # assets
-│ ├─ images/ # assets
-│ └─ random_cappuccino.db
-├─ handlers/
-│ ├─ admin_handlers.py
-│ └─ user_handlers.py
-├─ utils/
-│ └─ init.py # DB helpers, pairing, email, etc.
-├─ bot_scheduler.py
-├─ config.env # example env file
-├─ config.py # loads env/config
-├─ main.py # entrypoint (polling + scheduler)
-└─ requirements.txt
+
+```text
+.
+├── data/
+│   ├── Logo/
+│   ├── images/
+│   └── random_cappuccino.db
+├── handlers/
+│   ├── admin_handlers.py
+│   └── user_handlers.py
+├── utils/
+│   └── __init__.py
+├── bot_scheduler.py
+├── config.env
+├── config.py
+├── main.py
+└── requirements.txt
+
+```
+
+
 
