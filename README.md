@@ -1,6 +1,7 @@
 # Random Cappuccino Bot
 
-A Telegram bot that helps international students meet on campus.  
+**Random Cappuccino Bot** is a Telegram bot that helps international students meet for a weekly coffee on campus. It automates round sign-ups, verifies university email addresses, and matches participants based on overlapping interests and availability.
+
 Each week it:
 1) invites students to join the round,
 2) pairs verified students by overlapping interests,
